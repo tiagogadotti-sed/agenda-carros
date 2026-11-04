@@ -10,6 +10,10 @@ import { resolve } from "node:path";
 import { z } from "zod";
 import type { DatabaseSync } from "node:sqlite";
 import { hashPassword, verifyPassword, tokenHash } from "./auth";
+import { isStrongPassword, PASSWORD_MESSAGE } from "../shared/password";
+const newPassword = z.string().refine(isStrongPassword, PASSWORD_MESSAGE);
+const LOCK_MESSAGE =
+  "Conta bloqueada após 3 tentativas inválidas. Solicite o desbloqueio ao administrador.";
 type User = {
   id: number;
   region_id: number;
@@ -77,33 +81,73 @@ export function createApp(
     (req, res) => {
       const input = z
         .object({
-          email: z.string().email().max(254),
+          email: z.string().trim().email().max(254),
           password: z.string().min(1).max(128),
         })
         .parse(req.body);
-      const user = db
-        .prepare("SELECT * FROM users WHERE email=?")
-        .get(input.email.toLowerCase()) as
-        (User & { password: string }) | undefined;
-      if (!user || !verifyPassword(input.password, user.password)) {
-        res.status(401).json({ error: "E-mail ou senha inválidos." });
-        return;
+      db.exec("BEGIN IMMEDIATE");
+      try {
+        const user = db
+          .prepare("SELECT * FROM users WHERE email=?")
+          .get(input.email.toLowerCase()) as
+          (User & { password: string }) | undefined;
+        if (!user) {
+          db.exec("COMMIT");
+          res.status(401).json({ error: "E-mail ou senha inválidos." });
+          return;
+        }
+        const state = db
+          .prepare("SELECT failures,locked FROM login_security WHERE user_id=?")
+          .get(user.id);
+        if (state?.locked) {
+          db.exec("COMMIT");
+          res.status(423).json({ error: LOCK_MESSAGE });
+          return;
+        }
+        if (!verifyPassword(input.password, user.password)) {
+          const failures = Number(state?.failures || 0) + 1;
+          const locked = failures >= 3 ? 1 : 0;
+          db.prepare(
+            "INSERT INTO login_security(user_id,failures,locked) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET failures=excluded.failures,locked=excluded.locked",
+          ).run(user.id, failures, locked);
+          if (locked) {
+            db.prepare("DELETE FROM sessions WHERE user_id=?").run(user.id);
+            db.prepare(
+              "INSERT INTO audit(region_id,user_id,action,target) VALUES(?,?,'user.locked',?)",
+            ).run(user.region_id, user.id, user.id);
+          }
+          db.exec("COMMIT");
+          res
+            .status(locked ? 423 : 401)
+            .json({
+              error: locked ? LOCK_MESSAGE : "E-mail ou senha inválidos.",
+            });
+          return;
+        }
+        db.prepare("DELETE FROM login_security WHERE user_id=?").run(user.id);
+        db.prepare("DELETE FROM sessions WHERE expires<?").run(Date.now());
+        const token = randomBytes(32).toString("hex");
+        db.prepare("INSERT INTO sessions VALUES(?,?,?)").run(
+          tokenHash(token),
+          user.id,
+          Date.now() + 8 * 3600000,
+        );
+        db.exec("COMMIT");
+        res.cookie("session", token, {
+          ...sessionOptions,
+          maxAge: 8 * 3600000,
+        });
+        res.json({ ok: true });
+      } catch (e) {
+        db.exec("ROLLBACK");
+        throw e;
       }
-      db.prepare("DELETE FROM sessions WHERE expires<?").run(Date.now());
-      const token = randomBytes(32).toString("hex");
-      db.prepare("INSERT INTO sessions VALUES(?,?,?)").run(
-        tokenHash(token),
-        user.id,
-        Date.now() + 8 * 3600000,
-      );
-      res.cookie("session", token, { ...sessionOptions, maxAge: 8 * 3600000 });
-      res.json({ ok: true });
     },
   );
   app.use("/api", (req, res, next) => {
     const user = db
       .prepare(
-        "SELECT u.id,u.region_id,u.name,u.email,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires>?",
+        "SELECT u.id,u.region_id,u.name,u.email,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires>? AND NOT EXISTS(SELECT 1 FROM login_security ls WHERE ls.user_id=u.id AND ls.locked=1)",
       )
       .get(tokenHash(cookieToken(req)), Date.now());
     if (!user) {
@@ -166,7 +210,7 @@ export function createApp(
     res.json(
       db
         .prepare(
-          "SELECT id,name,email,role FROM users WHERE region_id=? ORDER BY name",
+          "SELECT u.id,u.name,u.email,u.role,COALESCE(ls.locked,0) AS locked FROM users u LEFT JOIN login_security ls ON ls.user_id=u.id WHERE u.region_id=? ORDER BY u.name",
         )
         .all(res.locals.user.region_id),
     ),
@@ -175,8 +219,8 @@ export function createApp(
     const b = z
       .object({
         name: z.string().trim().min(2).max(100),
-        email: z.string().email().max(254),
-        password: z.string().min(8).max(128),
+        email: z.string().trim().email().max(254),
+        password: newPassword,
         role: z.enum(["admin", "manager", "viewer"]),
       })
       .parse(req.body);
@@ -234,16 +278,37 @@ export function createApp(
       }
     },
   );
+  app.post("/api/users/:id/unlock", allowed(["admin"]), (req, res) => {
+    const id = z.coerce.number().int().positive().parse(req.params.id);
+    const u = res.locals.user as User;
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      if (
+        !db
+          .prepare("SELECT id FROM users WHERE id=? AND region_id=?")
+          .get(id, u.region_id)
+      ) {
+        db.exec("ROLLBACK");
+        res.status(404).json({ error: "Usuário não encontrado." });
+        return;
+      }
+      db.prepare("DELETE FROM login_security WHERE user_id=?").run(id);
+      audit(u, "user.unlocked", id);
+      db.exec("COMMIT");
+      res.json({ ok: true });
+    } catch (e) {
+      db.exec("ROLLBACK");
+      throw e;
+    }
+  });
   app.post("/api/users/:id/edit", allowed(["admin", "manager"]), (req, res) => {
     const id = z.coerce.number().int().positive().parse(req.params.id);
     const b = z
       .object({
         name: z.string().trim().min(2).max(100),
-        email: z.string().email().max(254),
+        email: z.string().trim().email().max(254),
         role: z.enum(["admin", "manager", "viewer"]),
-        password: z
-          .union([z.literal(""), z.string().min(8).max(128)])
-          .optional(),
+        password: z.union([z.literal(""), newPassword]).optional(),
       })
       .parse(req.body);
     const u = res.locals.user as User;
@@ -394,7 +459,9 @@ export function createApp(
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof z.ZodError) {
       res.status(400).json({
-        error: "Confira os campos. Senhas devem ter pelo menos 8 caracteres.",
+        error: err.issues.some((i) => i.path.includes("password"))
+          ? PASSWORD_MESSAGE
+          : "Confira os campos informados.",
         details: err.issues.map((i) => i.path.join(".")),
       });
       return;

@@ -92,7 +92,7 @@ test("perfis, sessões, isolamento regional e conflitos de reservas", async () =
     const newUser = {
       name: "Nova pessoa",
       email: "nova@example.org",
-      password: "Teste#8!",
+      password: "Teste#88!",
       role: "admin",
     };
     await post(manager, "/api/users", newUser).expect(403);

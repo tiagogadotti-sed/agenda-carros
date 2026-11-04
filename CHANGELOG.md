@@ -1,6 +1,9 @@
 # Histórico
 
 ## Alterações recentes
+
+- Senhas novas exigem maiúscula, minúscula, número e caractere especial, com 8 a 128 caracteres.
+- Bloqueio permanente após três falhas consecutivas, persistido no SQLite; desbloqueio somente por administrador da regional.
 - Gestores podem alterar perfis entre Gestor e Consulta, sem atribuir Administrador.
 - Edição de veículos por administrador e gestor.
 - Edição de usuários com validação de perfil e regional, senha opcional e revogação de sessões ao alterar credenciais/perfil.

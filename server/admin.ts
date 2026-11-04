@@ -2,17 +2,18 @@ import "dotenv/config";
 import { createInterface } from "node:readline/promises";
 import { openDb } from "./db";
 import { hashPassword } from "./auth";
+import { isStrongPassword, PASSWORD_MESSAGE } from "../shared/password";
 const rl = createInterface({ input: process.stdin, output: process.stdout });
 try {
   const name = await rl.question("Nome do administrador: ");
   const email = (await rl.question("E-mail: ")).trim().toLowerCase();
   const region = await rl.question("Nome da regional: ");
   console.log("A senha digitada será visível neste terminal local.");
-  const password = await rl.question("Senha (mínimo 8 caracteres): ");
+  console.log(PASSWORD_MESSAGE);
+  const password = await rl.question("Senha: ");
   if (!name.trim() || !region.trim() || !/^\S+@\S+\.\S+$/.test(email))
     throw new Error("Informe nome, regional e um e-mail válido.");
-  if (password.length < 8 || password.length > 128)
-    throw new Error("A senha deve ter entre 8 e 128 caracteres.");
+  if (!isStrongPassword(password)) throw new Error(PASSWORD_MESSAGE);
   const db = openDb(process.env.DB_PATH || "./data/agenda.sqlite");
   try {
     db.exec("BEGIN IMMEDIATE");

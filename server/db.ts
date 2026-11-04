@@ -7,6 +7,7 @@ export function openDb(path: string) {
   db.exec(`PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;
   CREATE TABLE IF NOT EXISTS regions(id INTEGER PRIMARY KEY, name TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, region_id INTEGER NOT NULL REFERENCES regions(id), name TEXT NOT NULL, email TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('admin','manager','viewer')));
+  CREATE TABLE IF NOT EXISTS login_security(user_id INTEGER PRIMARY KEY REFERENCES users(id), failures INTEGER NOT NULL DEFAULT 0, locked INTEGER NOT NULL DEFAULT 0 CHECK(locked IN (0,1)));
   CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), expires INTEGER NOT NULL);
   CREATE TABLE IF NOT EXISTS vehicles(id INTEGER PRIMARY KEY, region_id INTEGER NOT NULL REFERENCES regions(id), name TEXT NOT NULL, plate TEXT NOT NULL, UNIQUE(region_id,plate));
   CREATE TABLE IF NOT EXISTS bookings(id INTEGER PRIMARY KEY, region_id INTEGER NOT NULL REFERENCES regions(id), vehicle_id INTEGER NOT NULL REFERENCES vehicles(id), user_id INTEGER NOT NULL REFERENCES users(id), start TEXT NOT NULL, end TEXT NOT NULL CHECK(end>start), reason TEXT NOT NULL, cancelled INTEGER NOT NULL DEFAULT 0);

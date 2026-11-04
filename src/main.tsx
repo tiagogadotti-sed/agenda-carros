@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./style.css";
+import { PASSWORD_PATTERN, PASSWORD_MESSAGE } from "../shared/password";
 type User = {
+  locked?: number;
   id: number;
   name: string;
   email: string;
@@ -586,6 +588,25 @@ function App() {
                     <p>{u.email}</p>
                   </div>
                   <span className="badge">{roles[u.role]}</span>
+                  {Boolean(u.locked) && (
+                    <span className="badge">Bloqueado</span>
+                  )}
+                  {Boolean(u.locked) && user.role === "admin" && (
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        void action(async () => {
+                          await api(`/users/${u.id}/unlock`, {});
+                          setUsers(await api("/users"));
+                          setNotice(
+                            "Usuário desbloqueado. Já pode tentar entrar novamente.",
+                          );
+                        })
+                      }
+                    >
+                      Desbloquear
+                    </button>
+                  )}
                   {(user.role === "admin" || u.role !== "admin") && (
                     <button
                       disabled={busy}
@@ -660,8 +681,13 @@ function App() {
                     minLength={8}
                     maxLength={128}
                     autoComplete="new-password"
+                    pattern={PASSWORD_PATTERN}
+                    title={PASSWORD_MESSAGE}
                   />
-                  <small>Deixe em branco para manter a senha atual.</small>
+                  <small>
+                    Deixe em branco para manter a senha atual.{" "}
+                    {PASSWORD_MESSAGE}
+                  </small>
                 </label>
                 <label>
                   Perfil
@@ -717,9 +743,11 @@ function App() {
                   minLength={8}
                   maxLength={128}
                   autoComplete="new-password"
+                  pattern={PASSWORD_PATTERN}
+                  title={PASSWORD_MESSAGE}
                   required
                 />
-                <small>Mínimo de 8 caracteres</small>
+                <small>{PASSWORD_MESSAGE}</small>
               </label>
               <label>
                 Perfil

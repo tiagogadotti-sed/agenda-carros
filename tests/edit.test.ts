@@ -106,12 +106,12 @@ test("edição respeita perfis, regional, unicidade, sessões e último administ
     );
     await post(manager, "/api/users/3/edit", {
       ...person,
-      password: "Nova#888",
+      password: "Nova#8888",
     }).expect(200);
     await viewer.get("/api/me").expect(401);
     assert.ok(
       verifyPassword(
-        "Nova#888",
+        "Nova#8888",
         db.prepare("SELECT password FROM users WHERE id=3").get()!
           .password as string,
       ),
@@ -122,7 +122,7 @@ test("edição respeita perfis, regional, unicidade, sessões e último administ
     }).expect(401);
     await post(viewer, "/api/login", {
       email: "3@example.org",
-      password: "Nova#888",
+      password: "Nova#8888",
     }).expect(200);
     await post(admin, "/api/users/1/edit", {
       name: "Admin",
@@ -136,14 +136,14 @@ test("edição respeita perfis, regional, unicidade, sessões e último administ
     await viewer.get("/api/me").expect(401);
     await post(viewer, "/api/login", {
       email: person.email,
-      password: "Nova#888",
+      password: "Nova#8888",
     }).expect(200);
     assert.equal((await viewer.get("/api/me")).body.role, "manager");
     await post(manager, "/api/users/3/edit", person).expect(200);
     await viewer.get("/api/me").expect(401);
     await post(viewer, "/api/login", {
       email: person.email,
-      password: "Nova#888",
+      password: "Nova#8888",
     }).expect(200);
     assert.equal((await viewer.get("/api/me")).body.role, "viewer");
     await viewer.get("/api/users").expect(403);
