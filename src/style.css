@@ -1,0 +1,526 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap");
+:root {
+  font-family: "DM Sans", system-ui, sans-serif;
+  color: #243e37;
+  background: #f5f7f5;
+  font-synthesis: none;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button {
+  border: 0;
+  border-radius: 8px;
+  background: #155e52;
+  color: white;
+  padding: 12px 18px;
+  cursor: pointer;
+  font-weight: 600;
+}
+button:hover {
+  filter: brightness(0.94);
+}
+button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+input,
+select,
+textarea {
+  border: 1px solid #ccd8d1;
+  border-radius: 7px;
+  padding: 11px;
+  background: white;
+  color: #243e37;
+  min-width: 0;
+}
+textarea {
+  resize: vertical;
+  min-height: 85px;
+}
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 600;
+}
+h1 {
+  font-size: 32px;
+  letter-spacing: -1px;
+  margin: 10px 0;
+}
+h2 {
+  font-size: 20px;
+  margin: 0 0 8px;
+}
+h3 {
+  margin: 0;
+}
+p {
+  line-height: 1.5;
+  color: #697b73;
+}
+small {
+  color: #697b73;
+}
+.brand {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -1px;
+}
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-weight: 700;
+  color: #7c9287;
+}
+.shell {
+  display: flex;
+  min-height: 100vh;
+}
+aside {
+  width: 235px;
+  background: #123e35;
+  color: white;
+  padding: 35px 24px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.regional {
+  font-size: 12px;
+  color: #a9c7ba;
+  border-bottom: 1px solid #ffffff20;
+  padding-bottom: 30px;
+}
+nav {
+  display: grid;
+  gap: 9px;
+  margin-top: 24px;
+}
+nav button {
+  text-align: left;
+  background: transparent;
+  color: #c1d6cb;
+  display: flex;
+  gap: 15px;
+}
+nav button.active {
+  background: #ffffff18;
+  color: white;
+}
+.account {
+  margin-top: auto;
+  padding-top: 35px;
+  display: grid;
+  gap: 8px;
+}
+.account small {
+  color: #b0c8bb;
+}
+.account button {
+  background: transparent;
+  border: 1px solid #ffffff30;
+  margin-top: 12px;
+}
+.content {
+  padding: 40px;
+  max-width: 1600px;
+  width: 100%;
+  min-width: 0;
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  gap: 15px;
+}
+header p {
+  margin: 0;
+  font-size: 14px;
+}
+.badge {
+  background: #e7efe9;
+  border: 1px solid #d9e4dc;
+  padding: 8px 12px;
+  border-radius: 30px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-bottom: 26px;
+}
+.stats article {
+  padding: 23px;
+  background: #fff;
+  border: 1px solid #e0e7e2;
+  border-radius: 12px;
+}
+.stats small {
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+.stats strong {
+  display: block;
+  font-size: 30px;
+  margin-top: 12px;
+}
+.stats strong span {
+  font-weight: 400;
+  font-size: 13px;
+  color: #697b73;
+}
+.stats strong.role {
+  font-size: 20px;
+  padding-top: 8px;
+}
+.panel {
+  background: white;
+  border: 1px solid #e0e7e2;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.toolbar {
+  padding: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+.toolbar p {
+  font-size: 12px;
+  margin: 0;
+}
+.controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.controls input,
+.controls select {
+  font-size: 12px;
+}
+.week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(120px, 1fr));
+  overflow-x: auto;
+  min-height: 340px;
+}
+.week > section {
+  border-top: 1px solid #e7ece8;
+  border-right: 1px solid #e7ece8;
+  padding: 12px 8px;
+}
+.week .today {
+  background: #f3f8f4;
+}
+.day {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+.day > span {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #74867b;
+}
+.day strong {
+  font-size: 24px;
+}
+.day small {
+  font-size: 10px;
+}
+.today .day strong {
+  color: #117354;
+}
+.empty {
+  text-align: center;
+  font-size: 11px;
+  color: #9caaa1;
+  margin-top: 40px;
+}
+.reservation {
+  background: #e9f2ec;
+  border-left: 3px solid #459574;
+  border-radius: 5px;
+  padding: 10px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.reservation > strong,
+.reservation > span,
+.reservation > small {
+  display: block;
+  margin-bottom: 6px;
+}
+.reservation p {
+  font-size: 12px;
+  color: #3c5b4b;
+}
+.cancel {
+  background: transparent;
+  color: #8b493e;
+  padding: 6px 0;
+  font-size: 11px;
+}
+.footnote {
+  font-size: 12px;
+}
+.editor {
+  margin-bottom: 24px;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: end;
+}
+.editor h2,
+.editor h3,
+.wide {
+  grid-column: 1/-1;
+}
+.editor button {
+  justify-self: start;
+}
+.error,
+.success {
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #fff0ec;
+  color: #9e3f2c;
+  font-size: 14px;
+}
+.success {
+  background: #e0efe5;
+  color: #235a3b;
+}
+.fleet {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-bottom: 25px;
+}
+.fleet article {
+  padding: 28px;
+}
+.car-symbol {
+  font-size: 42px;
+  color: #408469;
+  display: block;
+  margin-bottom: 20px;
+}
+.plate {
+  display: inline-block;
+  font-family: monospace;
+  letter-spacing: 2px;
+  border: 1px solid #c5d0c9;
+  padding: 7px;
+  margin-top: 10px;
+}
+.people {
+  padding: 0 24px;
+  margin-bottom: 24px;
+}
+.people article {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  border-bottom: 1px solid #e5ebe6;
+  gap: 15px;
+}
+.people p {
+  margin: 6px 0;
+  font-size: 13px;
+}
+.login {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  min-height: 100vh;
+}
+.intro {
+  background: #123e35;
+  padding: 15vh 10%;
+  color: #fff;
+}
+.intro h1 {
+  font-size: clamp(38px, 4vw, 65px);
+  line-height: 1.1;
+  margin-top: 40px;
+}
+.intro p {
+  color: #bfd3c7;
+  max-width: 340px;
+}
+.intro .eyebrow {
+  color: #b6cabe;
+}
+.road {
+  border-top: 1px solid #628977;
+  margin-top: 90px;
+  padding-top: 30px;
+  letter-spacing: 4px;
+}
+.road span {
+  padding: 0 30px;
+  color: #a6c7a3;
+}
+.login-card {
+  max-width: 460px;
+  width: 100%;
+  padding: 45px;
+  margin: auto;
+}
+.login-card .brand {
+  display: block;
+  margin-bottom: 40px;
+}
+.login-card > p {
+  font-size: 14px;
+}
+.login-card form {
+  display: grid;
+  gap: 22px;
+  margin: 30px 0;
+}
+.login-card > small {
+  font-size: 12px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+:focus-visible {
+  outline: 3px solid #d4a748;
+  outline-offset: 3px;
+}
+@media (max-width: 1000px) {
+  aside {
+    width: 190px;
+    padding: 25px 15px;
+  }
+  .content {
+    padding: 25px;
+  }
+  .badge {
+    white-space: normal;
+  }
+  .week {
+    grid-template-columns: repeat(7, 150px);
+  }
+}
+@media (max-width: 650px) {
+  .login {
+    display: block;
+  }
+  .intro {
+    padding: 35px;
+  }
+  .intro h1 {
+    font-size: 36px;
+    margin-top: 20px;
+  }
+  .intro .road {
+    display: none;
+  }
+  .login-card {
+    padding: 30px;
+  }
+  .shell {
+    display: block;
+  }
+  aside {
+    width: 100%;
+    padding: 18px;
+  }
+  .regional {
+    display: none;
+  }
+  nav {
+    display: flex;
+    margin-top: 15px;
+    gap: 4px;
+  }
+  nav button {
+    padding: 10px;
+  }
+  .account {
+    display: flex;
+    align-items: center;
+    padding-top: 15px;
+    font-size: 12px;
+    gap: 12px;
+  }
+  .account button {
+    margin: 0;
+    padding: 7px;
+  }
+  .content {
+    padding: 22px 14px;
+  }
+  header {
+    display: block;
+  }
+  header > .badge {
+    display: none;
+  }
+  h1 {
+    font-size: 27px;
+  }
+  .stats {
+    gap: 8px;
+  }
+  .stats article {
+    padding: 12px;
+  }
+  .stats small {
+    font-size: 8px;
+  }
+  .stats strong {
+    font-size: 24px;
+  }
+  .stats strong.role {
+    font-size: 14px;
+  }
+  .stats strong span {
+    display: block;
+    font-size: 11px;
+  }
+  .toolbar {
+    padding: 16px;
+  }
+  .editor {
+    grid-template-columns: 1fr;
+    padding: 18px;
+  }
+  .controls {
+    width: 100%;
+  }
+  .controls button {
+    width: 100%;
+  }
+  .people {
+    padding: 0 14px;
+  }
+}
