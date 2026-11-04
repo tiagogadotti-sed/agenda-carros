@@ -468,9 +468,18 @@ header p {
   .account {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     padding-top: 15px;
     font-size: 12px;
     gap: 12px;
+  }
+  .account form {
+    width: 100%;
+    display: grid;
+    gap: 10px;
+  }
+  .account form input {
+    width: 100%;
   }
   .account button {
     margin: 0;

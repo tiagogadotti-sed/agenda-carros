@@ -177,6 +177,10 @@ export function createApp(
       ...u,
       region: db.prepare("SELECT name FROM regions WHERE id=?").get(u.region_id)
         ?.name,
+      mustChangePassword: Boolean(
+        (db.prepare("SELECT must_change_password FROM users WHERE id=?").get(u.id) as { must_change_password: number } | undefined)
+          ?.must_change_password,
+      ),
     });
   });
   app.post("/api/logout", (req, res) => {
@@ -233,7 +237,7 @@ export function createApp(
     }
     const r = db
       .prepare(
-        "INSERT INTO users(region_id,name,email,password,role) VALUES(?,?,?,?,?)",
+        "INSERT INTO users(region_id,name,email,password,role,must_change_password) VALUES(?,?,?,?,?,1)",
       )
       .run(
         u.region_id,
@@ -369,6 +373,38 @@ export function createApp(
       const requiresLogin = revoke && id === u.id;
       if (requiresLogin) res.clearCookie("session", sessionOptions);
       res.json({ ok: true, requiresLogin });
+    } catch (e) {
+      db.exec("ROLLBACK");
+      throw e;
+    }
+  });
+  app.post("/api/me/password", (req, res) => {
+    const b = z
+      .object({
+        current: z.string().min(1).max(128),
+        password: newPassword,
+      })
+      .parse(req.body);
+    const u = res.locals.user as User;
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      const row = db
+        .prepare("SELECT password FROM users WHERE id=?")
+        .get(u.id) as { password: string } | undefined;
+      if (!row || !verifyPassword(b.current, row.password)) {
+        db.exec("COMMIT");
+        res.status(401).json({ error: "Senha atual incorreta." });
+        return;
+      }
+      db.prepare("UPDATE users SET password=?,must_change_password=0 WHERE id=?").run(
+        hashPassword(b.password),
+        u.id,
+      );
+      db.prepare("DELETE FROM sessions WHERE user_id=?").run(u.id);
+      audit(u, "user.password_changed", u.id);
+      db.exec("COMMIT");
+      res.clearCookie("session", sessionOptions);
+      res.json({ ok: true });
     } catch (e) {
       db.exec("ROLLBACK");
       throw e;

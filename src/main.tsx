@@ -9,6 +9,7 @@ type User = {
   email: string;
   role: string;
   region: string;
+  mustChangePassword?: boolean;
 };
 type Vehicle = { id: number; name: string; plate: string };
 type Booking = {
@@ -62,6 +63,7 @@ function App() {
     [notice, setNotice] = useState("");
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
   async function refresh() {
     const [v, b] = await Promise.all([api("/vehicles"), api("/bookings")]);
     setVehicles(v);
@@ -101,7 +103,7 @@ function App() {
   const canManage = user?.role !== "viewer";
   const weekStart = new Date(day + "T12:00:00");
   weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
-  const days = Array.from({ length: 7 }, (_, i) => {
+  const days = Array.from({ length: 5 }, (_, i) => {
     const d = new Date(weekStart);
     d.setDate(d.getDate() + i);
     return d;
@@ -182,6 +184,69 @@ function App() {
         </section>
       </main>
     );
+  if (user.mustChangePassword)
+    return (
+      <main className="login">
+        <div className="intro">
+          <span className="eyebrow">COORDENADORIA REGIONAL DE EDUCAÇÃO</span>
+          <h1>
+            Crie sua
+            <br />
+            senha pessoal.
+          </h1>
+          <p>Por segurança, defina uma nova senha antes de continuar.</p>
+        </div>
+        <section className="login-card">
+          <span className="brand">◈ Agenda CRE</span>
+          <h2>Primeiro acesso</h2>
+          <p>Escolha uma senha forte para proteger sua conta.</p>
+          {error && (
+            <p role="alert" className="error">
+              {error}
+            </p>
+          )}
+          <form
+            onSubmit={(e) => {
+              const b = form(e);
+              void action(async () => {
+                await api("/me/password", b);
+                setUser(null);
+                setVehicles([]);
+                setBookings([]);
+                setNotice("Senha criada com sucesso. Entre novamente.");
+              });
+            }}
+          >
+            <label>
+              Senha atual (fornecida pelo administrador)
+              <input
+                name="current"
+                type="password"
+                autoComplete="current-password"
+                required
+              />
+            </label>
+            <label>
+              Nova senha
+              <input
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                maxLength={128}
+                pattern={PASSWORD_PATTERN}
+                title={PASSWORD_MESSAGE}
+              />
+            </label>
+            <small>{PASSWORD_MESSAGE}</small>
+            <button disabled={busy}>
+              {busy ? "Salvando…" : "Definir minha senha →"}
+            </button>
+          </form>
+        </section>
+      </main>
+    );
   return (
     <div className="shell">
       <aside>
@@ -211,6 +276,60 @@ function App() {
         <div className="account">
           <strong>{user.name}</strong>
           <small>{roles[user.role]}</small>
+          <button
+            type="button"
+            onClick={() => {
+              setShowPasswordForm((v) => !v);
+              setError("");
+              setNotice("");
+            }}
+          >
+            {showPasswordForm ? "Cancelar" : "Trocar senha"}
+          </button>
+          {showPasswordForm && (
+            <form
+              onSubmit={(e) => {
+                const b = form(e);
+                void action(async () => {
+                  await api("/me/password", b);
+                  setUser(null);
+                  setVehicles([]);
+                  setBookings([]);
+                  setUsers([]);
+                  setTab("agenda");
+                  setShowPasswordForm(false);
+                  setNotice("Senha alterada. Entre novamente.");
+                });
+              }}
+            >
+              <label>
+                Senha atual
+                <input
+                  name="current"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                />
+              </label>
+              <label>
+                Nova senha
+                <input
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={8}
+                  maxLength={128}
+                  pattern={PASSWORD_PATTERN}
+                  title={PASSWORD_MESSAGE}
+                />
+              </label>
+              <small>{PASSWORD_MESSAGE}</small>
+              <button disabled={busy}>
+                {busy ? "Salvando…" : "Confirmar troca"}
+              </button>
+            </form>
+          )}
           <button
             disabled={busy}
             onClick={() =>
@@ -397,7 +516,70 @@ function App() {
                   const list = visible.filter(
                     (b) => new Date(b.start) < end && new Date(b.end) > start,
                   );
-                  return (
+                  if (user?.mustChangePassword)
+    return (
+      <main className="login">
+        <div className="intro">
+          <span className="eyebrow">COORDENADORIA REGIONAL DE EDUCAÇÃO</span>
+          <h1>
+            Crie sua
+            <br />
+            senha pessoal.
+          </h1>
+          <p>Por segurança, defina uma nova senha antes de continuar.</p>
+        </div>
+        <section className="login-card">
+          <span className="brand">◈ Agenda CRE</span>
+          <h2>Primeiro acesso</h2>
+          <p>Escolha uma senha forte para proteger sua conta.</p>
+          {error && (
+            <p role="alert" className="error">
+              {error}
+            </p>
+          )}
+          <form
+            onSubmit={(e) => {
+              const b = form(e);
+              void action(async () => {
+                await api("/me/password", b);
+                setUser(null);
+                setVehicles([]);
+                setBookings([]);
+                setNotice("Senha criada com sucesso. Entre novamente.");
+              });
+            }}
+          >
+            <label>
+              Senha atual (fornecida pelo administrador)
+              <input
+                name="current"
+                type="password"
+                autoComplete="current-password"
+                required
+              />
+            </label>
+            <label>
+              Nova senha
+              <input
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                maxLength={128}
+                pattern={PASSWORD_PATTERN}
+                title={PASSWORD_MESSAGE}
+              />
+            </label>
+            <small>{PASSWORD_MESSAGE}</small>
+            <button disabled={busy}>
+              {busy ? "Salvando…" : "Definir minha senha →"}
+            </button>
+          </form>
+        </section>
+      </main>
+    );
+  return (
                     <section
                       key={d.toISOString()}
                       className={
@@ -753,6 +935,7 @@ function App() {
                 Perfil
                 <select name="role">
                   <option value="viewer">Consulta</option>
+				  <option value="manager">Gestor de agenda</option>
                   {user.role === "admin" && (
                     <>
                       <option value="manager">Gestor de agenda</option>
