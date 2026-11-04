@@ -15,8 +15,8 @@ npm run dev
 ```
 
 O comando `admin` solicita nome, e-mail, regional e senha. Não existem contas ou senhas padrão.
-Abra **http://localhost:5173** (use localhost, como no APP_ORIGIN). Cadastre os quatro veículos em **Veículos** e as pessoas em **Usuários**.
-O frontend usa a porta 5173; a API, 3001. Caso a porta 5173 esteja ocupada, libere-a ou ajuste APP_ORIGIN para a URL utilizada.
+Abra **http://localhost:5173** (localhost e 127.0.0.1 são aceitos no desenvolvimento). Cadastre os quatro veículos em **Veículos** e as pessoas em **Usuários**.
+O frontend usa a porta 5173; a API, 3001. A porta 5173 é fixa: se estiver ocupada, o Vite avisa em vez de mudar silenciosamente. Em produção, APP_ORIGIN deve corresponder à origem HTTPS pública; aliases locais não são liberados.
 
 ## Escopo inicial
 

@@ -9,6 +9,7 @@ const server = createApp(
   db,
   process.env.APP_ORIGIN || "http://localhost:5173",
   production,
+  Number(process.env.PORT || 3001),
 ).listen(
   Number(process.env.PORT || 3001),
   process.env.HOST || "127.0.0.1",

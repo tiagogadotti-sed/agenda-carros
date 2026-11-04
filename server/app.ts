@@ -21,7 +21,22 @@ export function createApp(
   db: DatabaseSync,
   origin = "http://localhost:5173",
   production = false,
+  localPort = 3001,
 ) {
+  const configuredOrigin = new URL(origin).origin;
+  const allowedOrigins = new Set([configuredOrigin]);
+  const configuredUrl = new URL(configuredOrigin);
+  if (
+    !production &&
+    ["localhost", "127.0.0.1", "[::1]"].includes(configuredUrl.hostname)
+  ) {
+    for (const host of ["localhost", "127.0.0.1", "[::1]"]) {
+      const alias = new URL(configuredOrigin);
+      alias.hostname = host;
+      allowedOrigins.add(alias.origin);
+      allowedOrigins.add(`http://${host}:${localPort}`);
+    }
+  }
   const app = express();
   app.disable("x-powered-by");
   app.use(helmet());
@@ -30,7 +45,7 @@ export function createApp(
     res.set("Cache-Control", "no-store");
     if (
       !["GET", "HEAD", "OPTIONS"].includes(req.method) &&
-      (req.get("Origin") !== origin ||
+      (!allowedOrigins.has(req.get("Origin") || "") ||
         req.get("X-Requested-With") !== "agenda-cre")
     ) {
       res.status(403).json({ error: "Origem da requisição inválida." });
