@@ -610,7 +610,7 @@ function App() {
                   void action(async () => {
                     const result = await api(`/users/${editingUser.id}/edit`, {
                       ...b,
-                      role: user.role === "admin" ? b.role : editingUser.role,
+                      role: b.role,
                     });
                     setEditingUser(null);
                     if (result.requiresLogin) {
@@ -665,11 +665,7 @@ function App() {
                 </label>
                 <label>
                   Perfil
-                  <select
-                    name="role"
-                    defaultValue={editingUser.role}
-                    disabled={user.role !== "admin"}
-                  >
+                  <select name="role" defaultValue={editingUser.role}>
                     <option value="viewer">Consulta</option>
                     <option value="manager">Gestor de agenda</option>
                     {user.role === "admin" && (

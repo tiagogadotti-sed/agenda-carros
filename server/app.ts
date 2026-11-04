@@ -260,15 +260,13 @@ export function createApp(
       }
       if (
         u.role === "manager" &&
-        (target.role === "admin" || b.role !== target.role)
+        (target.role === "admin" || b.role === "admin")
       ) {
         db.exec("ROLLBACK");
-        res
-          .status(403)
-          .json({
-            error:
-              "Gestores podem editar usuários não administrativos, sem alterar o perfil.",
-          });
+        res.status(403).json({
+          error:
+            "Gestores podem alternar entre Gestor e Consulta, mas não editar ou atribuir Administrador.",
+        });
         return;
       }
       if (
@@ -283,11 +281,9 @@ export function createApp(
         ) <= 1
       ) {
         db.exec("ROLLBACK");
-        res
-          .status(409)
-          .json({
-            error: "A regional precisa manter pelo menos um administrador.",
-          });
+        res.status(409).json({
+          error: "A regional precisa manter pelo menos um administrador.",
+        });
         return;
       }
       db.prepare(

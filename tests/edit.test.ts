@@ -78,7 +78,11 @@ test("edição respeita perfis, regional, unicidade, sessões e último administ
     }).expect(403);
     await post(manager, "/api/users/3/edit", {
       ...person,
-      role: "manager",
+      role: "admin",
+    }).expect(403);
+    await post(manager, "/api/users/1/edit", {
+      ...person,
+      role: "viewer",
     }).expect(403);
     const previous = db.prepare("SELECT password FROM users WHERE id=3").get()!
       .password;
@@ -125,11 +129,24 @@ test("edição respeita perfis, regional, unicidade, sessões e último administ
       email: "1@example.org",
       role: "viewer",
     }).expect(409);
-    await post(admin, "/api/users/3/edit", {
+    await post(manager, "/api/users/3/edit", {
       ...person,
       role: "manager",
     }).expect(200);
     await viewer.get("/api/me").expect(401);
+    await post(viewer, "/api/login", {
+      email: person.email,
+      password: "Nova#888",
+    }).expect(200);
+    assert.equal((await viewer.get("/api/me")).body.role, "manager");
+    await post(manager, "/api/users/3/edit", person).expect(200);
+    await viewer.get("/api/me").expect(401);
+    await post(viewer, "/api/login", {
+      email: person.email,
+      password: "Nova#888",
+    }).expect(200);
+    assert.equal((await viewer.get("/api/me")).body.role, "viewer");
+    await viewer.get("/api/users").expect(403);
     const response = await post(manager, "/api/users/2/edit", {
       name: "Gestor",
       email: "gestor@example.org",
@@ -151,7 +168,7 @@ test("edição respeita perfis, regional, unicidade, sessões e último administ
           "SELECT COUNT(*) AS count FROM audit WHERE action='user.updated'",
         )
         .get()!.count,
-      4,
+      5,
     );
   } finally {
     db.close();

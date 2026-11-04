@@ -26,7 +26,7 @@ O frontend usa a porta 5173; a API, 3001. A porta 5173 é fixa: se estiver ocupa
 - Consulta: somente leitura da agenda e frota.
 - Administrador e gestor podem editar nome e placa dos veículos.
 - Administrador pode editar nome, e-mail, perfil e senha dos usuários da regional; o último administrador não pode perder esse perfil.
-- Gestor pode editar usuários não administrativos, mantendo o perfil existente. Senha em branco mantém a atual; quando preenchida, exige pelo menos 8 caracteres.
+- Gestor pode editar usuários não administrativos e alternar seu perfil entre Gestor e Consulta; não pode atribuir Administrador nem editar contas administrativas. Senha em branco mantém a atual; quando preenchida, exige pelo menos 8 caracteres.
 - Alterações de e-mail, senha ou perfil encerram as sessões do usuário editado.
 - Calendário semanal responsivo, filtros, viagens de múltiplos dias e motivo obrigatório.
 - Separação por regional no servidor. Para outra regional, execute `npm run admin` e informe outro nome.

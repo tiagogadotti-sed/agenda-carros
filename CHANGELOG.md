@@ -1,6 +1,7 @@
 # Histórico
 
 ## Alterações recentes
+- Gestores podem alterar perfis entre Gestor e Consulta, sem atribuir Administrador.
 - Edição de veículos por administrador e gestor.
 - Edição de usuários com validação de perfil e regional, senha opcional e revogação de sessões ao alterar credenciais/perfil.
 - Proteção do último administrador e registro de edições em auditoria.
