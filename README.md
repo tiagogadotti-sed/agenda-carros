@@ -24,6 +24,10 @@ O frontend usa a porta 5173; a API, 3001. A porta 5173 é fixa: se estiver ocupa
 - Administrador: cadastrar veículos e usuários de todos os perfis; consultar, agendar e cancelar viagens.
 - Gestor: consultar, agendar, cancelar e cadastrar usuários de consulta.
 - Consulta: somente leitura da agenda e frota.
+- Administrador e gestor podem editar nome e placa dos veículos.
+- Administrador pode editar nome, e-mail, perfil e senha dos usuários da regional; o último administrador não pode perder esse perfil.
+- Gestor pode editar usuários não administrativos, mantendo o perfil existente. Senha em branco mantém a atual; quando preenchida, exige pelo menos 8 caracteres.
+- Alterações de e-mail, senha ou perfil encerram as sessões do usuário editado.
 - Calendário semanal responsivo, filtros, viagens de múltiplos dias e motivo obrigatório.
 - Separação por regional no servidor. Para outra regional, execute `npm run admin` e informe outro nome.
 - Conflitos impedidos por triggers SQLite e transações. Reservas adjacentes são permitidas.
@@ -60,7 +64,7 @@ Para restaurar: pare a aplicação, preserve o banco atual e seus arquivos WAL/S
 
 ## Próximas etapas
 
-- Alteração/recuperação de senha, desativação de usuários e edição de perfis.
+- Recuperação de senha por e-mail e desativação de usuários.
 - Edição de reservas (por enquanto cancelar e cadastrar novamente).
 - Bloqueios de manutenção e desativação de veículos.
 - Tela de histórico/auditoria e política de retenção.

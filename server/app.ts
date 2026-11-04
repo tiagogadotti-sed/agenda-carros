@@ -201,6 +201,118 @@ export function createApp(
     audit(u, "user.created", Number(r.lastInsertRowid));
     res.status(201).json({ id: Number(r.lastInsertRowid) });
   });
+  app.post(
+    "/api/vehicles/:id/edit",
+    allowed(["admin", "manager"]),
+    (req, res) => {
+      const id = z.coerce.number().int().positive().parse(req.params.id);
+      const b = z
+        .object({
+          name: z.string().trim().min(2).max(80),
+          plate: z.string().trim().min(4).max(12),
+        })
+        .parse(req.body);
+      const u = res.locals.user as User;
+      db.exec("BEGIN IMMEDIATE");
+      try {
+        const result = db
+          .prepare(
+            "UPDATE vehicles SET name=?,plate=? WHERE id=? AND region_id=?",
+          )
+          .run(b.name, b.plate.toUpperCase(), id, u.region_id);
+        if (!result.changes) {
+          db.exec("ROLLBACK");
+          res.status(404).json({ error: "Veículo não encontrado." });
+          return;
+        }
+        audit(u, "vehicle.updated", id);
+        db.exec("COMMIT");
+        res.json({ ok: true });
+      } catch (e) {
+        db.exec("ROLLBACK");
+        throw e;
+      }
+    },
+  );
+  app.post("/api/users/:id/edit", allowed(["admin", "manager"]), (req, res) => {
+    const id = z.coerce.number().int().positive().parse(req.params.id);
+    const b = z
+      .object({
+        name: z.string().trim().min(2).max(100),
+        email: z.string().email().max(254),
+        role: z.enum(["admin", "manager", "viewer"]),
+        password: z
+          .union([z.literal(""), z.string().min(8).max(128)])
+          .optional(),
+      })
+      .parse(req.body);
+    const u = res.locals.user as User;
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      const target = db
+        .prepare("SELECT id,role,email FROM users WHERE id=? AND region_id=?")
+        .get(id, u.region_id) as
+        Pick<User, "id" | "role" | "email"> | undefined;
+      if (!target) {
+        db.exec("ROLLBACK");
+        res.status(404).json({ error: "Usuário não encontrado." });
+        return;
+      }
+      if (
+        u.role === "manager" &&
+        (target.role === "admin" || b.role !== target.role)
+      ) {
+        db.exec("ROLLBACK");
+        res
+          .status(403)
+          .json({
+            error:
+              "Gestores podem editar usuários não administrativos, sem alterar o perfil.",
+          });
+        return;
+      }
+      if (
+        target.role === "admin" &&
+        b.role !== "admin" &&
+        Number(
+          db
+            .prepare(
+              "SELECT COUNT(*) AS total FROM users WHERE region_id=? AND role='admin'",
+            )
+            .get(u.region_id)!.total,
+        ) <= 1
+      ) {
+        db.exec("ROLLBACK");
+        res
+          .status(409)
+          .json({
+            error: "A regional precisa manter pelo menos um administrador.",
+          });
+        return;
+      }
+      db.prepare(
+        "UPDATE users SET name=?,email=?,role=? WHERE id=? AND region_id=?",
+      ).run(b.name, b.email.toLowerCase(), b.role, id, u.region_id);
+      if (b.password)
+        db.prepare("UPDATE users SET password=? WHERE id=?").run(
+          hashPassword(b.password),
+          id,
+        );
+      const revoke =
+        Boolean(b.password) ||
+        target.email !== b.email.toLowerCase() ||
+        target.role !== b.role;
+      if (revoke) db.prepare("DELETE FROM sessions WHERE user_id=?").run(id);
+      audit(u, "user.updated", id);
+      db.exec("COMMIT");
+      const requiresLogin = revoke && id === u.id;
+      if (requiresLogin) res.clearCookie("session", sessionOptions);
+      res.json({ ok: true, requiresLogin });
+    } catch (e) {
+      db.exec("ROLLBACK");
+      throw e;
+    }
+  });
   app.get("/api/bookings", (_req, res) =>
     res.json(
       db

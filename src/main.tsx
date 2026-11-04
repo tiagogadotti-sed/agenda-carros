@@ -58,6 +58,8 @@ function App() {
     [day, setDay] = useState(localDay(new Date())),
     [showForm, setShowForm] = useState(false),
     [notice, setNotice] = useState("");
+  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   async function refresh() {
     const [v, b] = await Promise.all([api("/vehicles"), api("/bookings")]);
     setVehicles(v);
@@ -130,6 +132,11 @@ function App() {
           <span className="brand">◈ Agenda CRE</span>
           <h2>Bem-vindo à sua agenda</h2>
           <p>Entre com o acesso fornecido pela sua regional.</p>
+          {notice && (
+            <p role="status" className="success">
+              {notice}
+            </p>
+          )}
           <form
             onSubmit={(e) => {
               const b = form(e);
@@ -189,6 +196,8 @@ function App() {
               key={id}
               onClick={() => {
                 setTab(id);
+                setEditingVehicle(null);
+                setEditingUser(null);
                 setError("");
                 setNotice("");
               }}
@@ -209,6 +218,9 @@ function App() {
                 setVehicles([]);
                 setBookings([]);
                 setUsers([]);
+                setEditingVehicle(null);
+                setEditingUser(null);
+                setTab("agenda");
               })
             }
           >
@@ -462,6 +474,20 @@ function App() {
                   <span className="car-symbol">◇</span>
                   <h2>{v.name}</h2>
                   <span className="plate">{v.plate}</span>
+                  {canManage && (
+                    <div>
+                      <button
+                        disabled={busy}
+                        onClick={() => {
+                          setEditingVehicle(v);
+                          setError("");
+                          setNotice("");
+                        }}
+                      >
+                        Editar veículo
+                      </button>
+                    </div>
+                  )}
                 </article>
               ))}
               {!vehicles.length && (
@@ -471,6 +497,51 @@ function App() {
                 </p>
               )}
             </div>
+            {editingVehicle && canManage && (
+              <form
+                key={editingVehicle.id}
+                className="panel editor"
+                onSubmit={(e) => {
+                  const b = form(e);
+                  void action(async () => {
+                    await api(`/vehicles/${editingVehicle.id}/edit`, b);
+                    await refresh();
+                    setEditingVehicle(null);
+                    setNotice("Veículo atualizado.");
+                  });
+                }}
+              >
+                <h2>Editar veículo</h2>
+                <label>
+                  Nome
+                  <input
+                    name="name"
+                    defaultValue={editingVehicle.name}
+                    required
+                    minLength={2}
+                    maxLength={80}
+                  />
+                </label>
+                <label>
+                  Placa
+                  <input
+                    name="plate"
+                    defaultValue={editingVehicle.plate}
+                    required
+                    minLength={4}
+                    maxLength={12}
+                  />
+                </label>
+                <button disabled={busy}>Salvar alterações</button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setEditingVehicle(null)}
+                >
+                  Cancelar edição
+                </button>
+              </form>
+            )}
             {user.role === "admin" && (
               <form
                 className="panel editor"
@@ -515,9 +586,111 @@ function App() {
                     <p>{u.email}</p>
                   </div>
                   <span className="badge">{roles[u.role]}</span>
+                  {(user.role === "admin" || u.role !== "admin") && (
+                    <button
+                      disabled={busy}
+                      onClick={() => {
+                        setEditingUser(u);
+                        setError("");
+                        setNotice("");
+                      }}
+                    >
+                      Editar usuário
+                    </button>
+                  )}
                 </article>
               ))}
             </section>
+            {editingUser && (
+              <form
+                key={editingUser.id}
+                className="panel editor"
+                onSubmit={(e) => {
+                  const b = form(e);
+                  void action(async () => {
+                    const result = await api(`/users/${editingUser.id}/edit`, {
+                      ...b,
+                      role: user.role === "admin" ? b.role : editingUser.role,
+                    });
+                    setEditingUser(null);
+                    if (result.requiresLogin) {
+                      setUser(null);
+                      setUsers([]);
+                      setVehicles([]);
+                      setBookings([]);
+                      setTab("agenda");
+                      setNotice(
+                        "Dados atualizados. Entre novamente com suas credenciais.",
+                      );
+                      return;
+                    }
+                    setUsers(await api("/users"));
+                    setUser(await api("/me"));
+                    await refresh();
+                    setNotice("Usuário atualizado.");
+                  });
+                }}
+              >
+                <h2>Editar usuário</h2>
+                <label>
+                  Nome
+                  <input
+                    name="name"
+                    defaultValue={editingUser.name}
+                    required
+                    minLength={2}
+                    maxLength={100}
+                  />
+                </label>
+                <label>
+                  E-mail
+                  <input
+                    name="email"
+                    type="email"
+                    defaultValue={editingUser.email}
+                    required
+                    maxLength={254}
+                  />
+                </label>
+                <label>
+                  Nova senha
+                  <input
+                    name="password"
+                    type="password"
+                    minLength={8}
+                    maxLength={128}
+                    autoComplete="new-password"
+                  />
+                  <small>Deixe em branco para manter a senha atual.</small>
+                </label>
+                <label>
+                  Perfil
+                  <select
+                    name="role"
+                    defaultValue={editingUser.role}
+                    disabled={user.role !== "admin"}
+                  >
+                    <option value="viewer">Consulta</option>
+                    <option value="manager">Gestor de agenda</option>
+                    {user.role === "admin" && (
+                      <option value="admin">Administrador</option>
+                    )}
+                  </select>
+                </label>
+                <p className="wide">
+                  Alterações de e-mail, senha ou perfil encerram as sessões
+                  desse usuário.
+                </p>
+                <button disabled={busy}>Salvar alterações</button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setEditingUser(null)}
+                >
+                  Cancelar edição
+                </button>
+              </form>
+            )}
             <form
               className="panel editor"
               onSubmit={(e) => {

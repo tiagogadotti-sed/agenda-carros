@@ -1,5 +1,10 @@
 # Histórico
 
+## Alterações recentes
+- Edição de veículos por administrador e gestor.
+- Edição de usuários com validação de perfil e regional, senha opcional e revogação de sessões ao alterar credenciais/perfil.
+- Proteção do último administrador e registro de edições em auditoria.
+
 ## 0.1.0 — 2026-11-04
 
 - Projeto independente com React/TypeScript, Express e SQLite.
