@@ -9,7 +9,7 @@ test("edição respeita perfis, regional, unicidade, sessões e último administ
   const db = openDb(":memory:");
   try {
     db.exec(
-      "INSERT INTO regions VALUES(1,'A'),(2,'B'); INSERT INTO vehicles VALUES(1,1,'Carro A','AAA1234'),(2,1,'Carro B','BBB1234'),(3,2,'Carro C','CCC1234')",
+      "INSERT INTO regions VALUES(1,'A'),(2,'B'); INSERT INTO vehicles VALUES(1,1,'Carro A'),(2,1,'Carro B'),(3,2,'Carro C')",
     );
     for (const [id, region, role] of [
       [1, 1, "admin"],
@@ -17,11 +17,13 @@ test("edição respeita perfis, regional, unicidade, sessões e último administ
       [3, 1, "viewer"],
       [4, 2, "admin"],
     ] as const)
-      db.prepare("INSERT INTO users VALUES(?,?,?,?,?,?)").run(
+      db.prepare(
+        "INSERT INTO users(id,region_id,name,username,password,role) VALUES(?,?,?,?,?,?)",
+      ).run(
         id,
         region,
         "Pessoa " + id,
-        `${id}@example.org`,
+        `user.${id}`,
         hashPassword("Teste#88"),
         role,
       );
@@ -45,28 +47,27 @@ test("edição respeita perfis, regional, unicidade, sessões e último administ
       [viewer, 3],
     ] as const)
       await post(client, "/api/login", {
-        email: `${id}@example.org`,
+        username: `user.${id}`,
         password: "Teste#88",
       }).expect(200);
-    const vehicle = { name: "Veículo atualizado", plate: "xyz1234" };
+    const vehicle = { name: "Veículo atualizado" };
     await post(viewer, "/api/vehicles/1/edit", vehicle).expect(403);
     await post(manager, "/api/vehicles/3/edit", vehicle).expect(404);
     await post(manager, "/api/vehicles/1/edit", vehicle).expect(200);
     assert.equal(
-      db.prepare("SELECT plate FROM vehicles WHERE id=1").get()!.plate,
-      "XYZ1234",
+      db.prepare("SELECT name FROM vehicles WHERE id=1").get()!.name,
+      "Veículo atualizado",
     );
     await post(admin, "/api/vehicles/2/edit", vehicle).expect(409);
-    await post(admin, "/api/vehicles/1/edit", { ...vehicle, name: "" }).expect(
+    await post(admin, "/api/vehicles/1/edit", { name: "" }).expect(
       400,
     );
     await post(admin, "/api/vehicles/1/edit", {
-      ...vehicle,
       name: "Nome final",
     }).expect(200);
     const person = {
       name: "Pessoa editada",
-      email: "3@example.org",
+      username: "user.3",
       role: "viewer",
       password: "",
     };
@@ -98,11 +99,11 @@ test("edição respeita perfis, regional, unicidade, sessões e último administ
     }).expect(400);
     await post(manager, "/api/users/3/edit", {
       ...person,
-      email: "1@example.org",
+      username: "user.1",
     }).expect(409);
     assert.equal(
-      db.prepare("SELECT email FROM users WHERE id=3").get()!.email,
-      "3@example.org",
+      db.prepare("SELECT username FROM users WHERE id=3").get()!.username,
+      "user.3",
     );
     await post(manager, "/api/users/3/edit", {
       ...person,
@@ -117,16 +118,16 @@ test("edição respeita perfis, regional, unicidade, sessões e último administ
       ),
     );
     await post(viewer, "/api/login", {
-      email: "3@example.org",
+      username: "user.3",
       password: "Teste#88",
     }).expect(401);
     await post(viewer, "/api/login", {
-      email: "3@example.org",
+      username: "user.3",
       password: "Nova#8888",
     }).expect(200);
     await post(admin, "/api/users/1/edit", {
       name: "Admin",
-      email: "1@example.org",
+      username: "user.1",
       role: "viewer",
     }).expect(409);
     await post(manager, "/api/users/3/edit", {
@@ -135,21 +136,21 @@ test("edição respeita perfis, regional, unicidade, sessões e último administ
     }).expect(200);
     await viewer.get("/api/me").expect(401);
     await post(viewer, "/api/login", {
-      email: person.email,
+      username: person.username,
       password: "Nova#8888",
     }).expect(200);
     assert.equal((await viewer.get("/api/me")).body.role, "manager");
     await post(manager, "/api/users/3/edit", person).expect(200);
     await viewer.get("/api/me").expect(401);
     await post(viewer, "/api/login", {
-      email: person.email,
+      username: person.username,
       password: "Nova#8888",
     }).expect(200);
     assert.equal((await viewer.get("/api/me")).body.role, "viewer");
     await viewer.get("/api/users").expect(403);
     const response = await post(manager, "/api/users/2/edit", {
       name: "Gestor",
-      email: "gestor@example.org",
+      username: "gestor.novo",
       role: "manager",
     }).expect(200);
     assert.equal(response.body.requiresLogin, true);

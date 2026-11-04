@@ -25,9 +25,11 @@ test("senha exige todas as classes, inclusive no cadastro e na edição", async 
     assert.equal(isStrongPassword("Ábcdef1!"), true);
     assert.equal(isStrongPassword("Abcdef1!"), true);
     db.exec("INSERT INTO regions VALUES(1,'Teste')");
-    db.prepare("INSERT INTO users VALUES(1,1,?,?,?,?)").run(
+    db.prepare(
+      "INSERT INTO users(id,region_id,name,username,password,role) VALUES(1,1,?,?,?,?)",
+    ).run(
       "Admin",
-      "admin@example.org",
+      "admin.user",
       hashPassword("Abcdef1!"),
       "admin",
     );
@@ -39,26 +41,26 @@ test("senha exige todas as classes, inclusive no cadastro e na edição", async 
         .set("X-Requested-With", "agenda-cre")
         .send(body);
     await post("/api/login", {
-      email: "admin@example.org",
+      username: "admin.user",
       password: "Abcdef1!",
     }).expect(200);
     for (const password of bad) {
       await post("/api/users", {
         name: "Pessoa",
-        email: "user@example.org",
+        username: "user.teste",
         role: "viewer",
         password,
       }).expect(400);
       await post("/api/users/1/edit", {
         name: "Admin",
-        email: "admin@example.org",
+        username: "admin.user",
         role: "admin",
         password,
       }).expect(400);
     }
     await post("/api/users", {
       name: "Pessoa",
-      email: "user@example.org",
+      username: "user.teste",
       role: "viewer",
       password: "Abcdef1!",
     }).expect(201);
@@ -79,11 +81,13 @@ test("três falhas bloqueiam permanentemente, apenas admin da regional desbloque
       [3, 1, "viewer"],
       [4, 2, "admin"],
     ] as const)
-      db.prepare("INSERT INTO users VALUES(?,?,?,?,?,?)").run(
+      db.prepare(
+        "INSERT INTO users(id,region_id,name,username,password,role) VALUES(?,?,?,?,?,?)",
+      ).run(
         id,
         region,
         "Pessoa " + id,
-        `${id}@example.org`,
+        `user.${id}`,
         hashPassword("Abcdef1!"),
         role,
       );
@@ -103,20 +107,20 @@ test("três falhas bloqueiam permanentemente, apenas admin da regional desbloque
         .send(body);
     const login = (
       client: ReturnType<typeof request.agent>,
-      email: string,
+      username: string,
       password = "Abcdef1!",
-    ) => post(client, "/api/login", { email, password });
-    await login(admin, "1@example.org").expect(200);
-    await login(manager, "2@example.org").expect(200);
-    await login(viewer, "3@example.org").expect(200);
+    ) => post(client, "/api/login", { username, password });
+    await login(admin, "user.1").expect(200);
+    await login(manager, "user.2").expect(200);
+    await login(viewer, "user.3").expect(200);
     for (let i = 0; i < 2; i++)
-      await login(viewer, "3@example.org", "errada").expect(401);
-    await login(viewer, "3@example.org").expect(200); // Sucesso zera a sequência.
-    await login(viewer, "3@example.org", "errada").expect(401);
-    await login(viewer, "3@EXAMPLE.ORG", "errada").expect(401);
-    await login(viewer, " 3@example.org ", "errada").expect(423);
+      await login(viewer, "user.3", "errada").expect(401);
+    await login(viewer, "user.3").expect(200); // Sucesso zera a sequência.
+    await login(viewer, "user.3", "errada").expect(401);
+    await login(viewer, "USER.3", "errada").expect(401);
+    await login(viewer, " user.3 ", "errada").expect(423);
     await viewer.get("/api/me").expect(401); // Sessões antigas também encerradas.
-    await login(viewer, "3@example.org").expect(423);
+    await login(viewer, "user.3").expect(423);
     assert.equal(
       (await admin.get("/api/users")).body.find(
         (u: { id: number }) => u.id === 3,
@@ -129,18 +133,18 @@ test("três falhas bloqueiam permanentemente, apenas admin da regional desbloque
     // Alterar senha, e-mail ou perfil não contorna o bloqueio ligado ao ID.
     await post(manager, "/api/users/3/edit", {
       name: "Pessoa",
-      email: "novo@example.org",
+      username: "novo.user",
       role: "manager",
       password: "Nova#8888",
     }).expect(200);
-    await login(viewer, "novo@example.org", "Nova#8888").expect(423);
+    await login(viewer, "novo.user", "Nova#8888").expect(423);
     db.close();
     db = openDb(path);
     app = createApp(db);
     admin = request.agent(app);
     viewer = request.agent(app);
-    await login(viewer, "novo@example.org", "Nova#8888").expect(423);
-    await login(admin, "1@example.org").expect(200);
+    await login(viewer, "novo.user", "Nova#8888").expect(423);
+    await login(admin, "user.1").expect(200);
     await post(admin, "/api/users/3/unlock", {}).expect(200);
     assert.equal(
       db
@@ -148,8 +152,8 @@ test("três falhas bloqueiam permanentemente, apenas admin da regional desbloque
         .get()!.n,
       0,
     );
-    await login(viewer, "novo@example.org", "Nova#8888").expect(200);
-    await login(viewer, "novo@example.org", "errada").expect(401); // Contador reinicia após desbloqueio.
+    await login(viewer, "novo.user", "Nova#8888").expect(200);
+    await login(viewer, "novo.user", "errada").expect(401); // Contador reinicia após desbloqueio.
     assert.equal(
       db
         .prepare("SELECT COUNT(*) AS n FROM audit WHERE action='user.locked'")

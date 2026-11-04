@@ -12,13 +12,16 @@ import type { DatabaseSync } from "node:sqlite";
 import { hashPassword, verifyPassword, tokenHash } from "./auth";
 import { isStrongPassword, PASSWORD_MESSAGE } from "../shared/password";
 const newPassword = z.string().refine(isStrongPassword, PASSWORD_MESSAGE);
+const usernamePattern = /^[a-z0-9]+(?:\.[a-z0-9]+)+$/;
+const USERNAME_MESSAGE =
+  "Informe o usuário no formato nome.sobrenome (apenas letras minúsculas, números e pontos).";
 const LOCK_MESSAGE =
   "Conta bloqueada após 3 tentativas inválidas. Solicite o desbloqueio ao administrador.";
 type User = {
   id: number;
   region_id: number;
   name: string;
-  email: string;
+  username: string;
   role: "admin" | "manager" | "viewer";
 };
 export function createApp(
@@ -81,19 +84,34 @@ export function createApp(
     (req, res) => {
       const input = z
         .object({
-          email: z.string().trim().email().max(254),
+          username: z.string().trim().toLowerCase().optional(),
+          user: z.string().trim().toLowerCase().optional(),
+          email: z.string().trim().toLowerCase().optional(),
           password: z.string().min(1).max(128),
+        })
+        .transform((data) => ({
+          username: (
+            data.username ||
+            data.user ||
+            data.email ||
+            ""
+          ).toLowerCase(),
+          password: data.password,
+        }))
+        .refine((data) => data.username.length > 0, {
+          message: "Informe o usuário.",
+          path: ["username"],
         })
         .parse(req.body);
       db.exec("BEGIN IMMEDIATE");
       try {
         const user = db
-          .prepare("SELECT * FROM users WHERE email=?")
-          .get(input.email.toLowerCase()) as
+          .prepare("SELECT * FROM users WHERE username=?")
+          .get(input.username) as
           (User & { password: string }) | undefined;
         if (!user) {
           db.exec("COMMIT");
-          res.status(401).json({ error: "E-mail ou senha inválidos." });
+          res.status(401).json({ error: "Usuário ou senha inválidos." });
           return;
         }
         const state = db
@@ -120,7 +138,7 @@ export function createApp(
           res
             .status(locked ? 423 : 401)
             .json({
-              error: locked ? LOCK_MESSAGE : "E-mail ou senha inválidos.",
+              error: locked ? LOCK_MESSAGE : "Usuário ou senha inválidos.",
             });
           return;
         }
@@ -147,7 +165,7 @@ export function createApp(
   app.use("/api", (req, res, next) => {
     const user = db
       .prepare(
-        "SELECT u.id,u.region_id,u.name,u.email,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires>? AND NOT EXISTS(SELECT 1 FROM login_security ls WHERE ls.user_id=u.id AND ls.locked=1)",
+        "SELECT u.id,u.region_id,u.name,u.username,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires>? AND NOT EXISTS(SELECT 1 FROM login_security ls WHERE ls.user_id=u.id AND ls.locked=1)",
       )
       .get(tokenHash(cookieToken(req)), Date.now());
     if (!user) {
@@ -201,20 +219,19 @@ export function createApp(
     const b = z
       .object({
         name: z.string().trim().min(2).max(80),
-        plate: z.string().trim().min(4).max(12),
       })
       .parse(req.body);
     const u = res.locals.user as User;
     const r = db
-      .prepare("INSERT INTO vehicles(region_id,name,plate) VALUES(?,?,?)")
-      .run(u.region_id, b.name, b.plate.toUpperCase());
+      .prepare("INSERT INTO vehicles(region_id,name) VALUES(?,?)")
+      .run(u.region_id, b.name);
     res.status(201).json({ id: Number(r.lastInsertRowid) });
   });
   app.get("/api/users", allowed(["admin", "manager"]), (_req, res) =>
     res.json(
       db
         .prepare(
-          "SELECT u.id,u.name,u.email,u.role,COALESCE(ls.locked,0) AS locked FROM users u LEFT JOIN login_security ls ON ls.user_id=u.id WHERE u.region_id=? ORDER BY u.name",
+          "SELECT u.id,u.name,u.username,u.role,COALESCE(ls.locked,0) AS locked FROM users u LEFT JOIN login_security ls ON ls.user_id=u.id WHERE u.region_id=? ORDER BY u.name",
         )
         .all(res.locals.user.region_id),
     ),
@@ -223,9 +240,21 @@ export function createApp(
     const b = z
       .object({
         name: z.string().trim().min(2).max(100),
-        email: z.string().trim().email().max(254),
+        username: z.string().trim().toLowerCase().optional(),
+        user: z.string().trim().toLowerCase().optional(),
+        email: z.string().trim().toLowerCase().optional(),
         password: newPassword,
         role: z.enum(["admin", "manager", "viewer"]),
+      })
+      .transform((data) => ({
+        name: data.name,
+        username: data.username || data.user || data.email || "",
+        password: data.password,
+        role: data.role,
+      }))
+      .refine((data) => usernamePattern.test(data.username), {
+        message: USERNAME_MESSAGE,
+        path: ["username"],
       })
       .parse(req.body);
     const u = res.locals.user as User;
@@ -237,12 +266,12 @@ export function createApp(
     }
     const r = db
       .prepare(
-        "INSERT INTO users(region_id,name,email,password,role,must_change_password) VALUES(?,?,?,?,?,1)",
+        "INSERT INTO users(region_id,name,username,password,role,must_change_password) VALUES(?,?,?,?,?,1)",
       )
       .run(
         u.region_id,
         b.name,
-        b.email.toLowerCase(),
+        b.username,
         hashPassword(b.password),
         b.role,
       );
@@ -257,7 +286,6 @@ export function createApp(
       const b = z
         .object({
           name: z.string().trim().min(2).max(80),
-          plate: z.string().trim().min(4).max(12),
         })
         .parse(req.body);
       const u = res.locals.user as User;
@@ -265,9 +293,9 @@ export function createApp(
       try {
         const result = db
           .prepare(
-            "UPDATE vehicles SET name=?,plate=? WHERE id=? AND region_id=?",
+            "UPDATE vehicles SET name=? WHERE id=? AND region_id=?",
           )
-          .run(b.name, b.plate.toUpperCase(), id, u.region_id);
+          .run(b.name, id, u.region_id);
         if (!result.changes) {
           db.exec("ROLLBACK");
           res.status(404).json({ error: "Veículo não encontrado." });
@@ -310,18 +338,30 @@ export function createApp(
     const b = z
       .object({
         name: z.string().trim().min(2).max(100),
-        email: z.string().trim().email().max(254),
+        username: z.string().trim().toLowerCase().optional(),
+        user: z.string().trim().toLowerCase().optional(),
+        email: z.string().trim().toLowerCase().optional(),
         role: z.enum(["admin", "manager", "viewer"]),
         password: z.union([z.literal(""), newPassword]).optional(),
+      })
+      .transform((data) => ({
+        name: data.name,
+        username: data.username || data.user || data.email || "",
+        role: data.role,
+        password: data.password,
+      }))
+      .refine((data) => usernamePattern.test(data.username), {
+        message: USERNAME_MESSAGE,
+        path: ["username"],
       })
       .parse(req.body);
     const u = res.locals.user as User;
     db.exec("BEGIN IMMEDIATE");
     try {
       const target = db
-        .prepare("SELECT id,role,email FROM users WHERE id=? AND region_id=?")
+        .prepare("SELECT id,role,username FROM users WHERE id=? AND region_id=?")
         .get(id, u.region_id) as
-        Pick<User, "id" | "role" | "email"> | undefined;
+        Pick<User, "id" | "role" | "username"> | undefined;
       if (!target) {
         db.exec("ROLLBACK");
         res.status(404).json({ error: "Usuário não encontrado." });
@@ -356,8 +396,8 @@ export function createApp(
         return;
       }
       db.prepare(
-        "UPDATE users SET name=?,email=?,role=? WHERE id=? AND region_id=?",
-      ).run(b.name, b.email.toLowerCase(), b.role, id, u.region_id);
+        "UPDATE users SET name=?,username=?,role=? WHERE id=? AND region_id=?",
+      ).run(b.name, b.username, b.role, id, u.region_id);
       if (b.password)
         db.prepare("UPDATE users SET password=? WHERE id=?").run(
           hashPassword(b.password),
@@ -365,7 +405,7 @@ export function createApp(
         );
       const revoke =
         Boolean(b.password) ||
-        target.email !== b.email.toLowerCase() ||
+        target.username !== b.username ||
         target.role !== b.role;
       if (revoke) db.prepare("DELETE FROM sessions WHERE user_id=?").run(id);
       audit(u, "user.updated", id);
@@ -414,7 +454,7 @@ export function createApp(
     res.json(
       db
         .prepare(
-          "SELECT b.*,v.name AS vehicle,v.plate,u.name AS author FROM bookings b JOIN vehicles v ON v.id=b.vehicle_id JOIN users u ON u.id=b.user_id WHERE b.region_id=? ORDER BY b.start",
+          "SELECT b.*,v.name AS vehicle,u.name AS author FROM bookings b JOIN vehicles v ON v.id=b.vehicle_id JOIN users u ON u.id=b.user_id WHERE b.region_id=? ORDER BY b.start",
         )
         .all(res.locals.user.region_id),
     ),
@@ -511,7 +551,7 @@ export function createApp(
     if (err.message.includes("UNIQUE constraint")) {
       res
         .status(409)
-        .json({ error: "Este e-mail ou placa já está cadastrado." });
+        .json({ error: "Este usuário ou veículo já está cadastrado." });
       return;
     }
     if (err instanceof SyntaxError) {

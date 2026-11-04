@@ -6,17 +6,16 @@ type User = {
   locked?: number;
   id: number;
   name: string;
-  email: string;
+  username: string;
   role: string;
   region: string;
   mustChangePassword?: boolean;
 };
-type Vehicle = { id: number; name: string; plate: string };
+type Vehicle = { id: number; name: string };
 type Booking = {
   id: number;
   vehicle_id: number;
   vehicle: string;
-  plate: string;
   start: string;
   end: string;
   reason: string;
@@ -152,10 +151,11 @@ function App() {
             }}
           >
             <label>
-              E-mail
+              Usuário
               <input
-                name="email"
-                type="email"
+                name="username"
+                type="text"
+                placeholder="nome.sobrenome"
                 autoComplete="username"
                 required
               />
@@ -470,7 +470,7 @@ function App() {
                       <option value="">Selecione</option>
                       {vehicles.map((v) => (
                         <option key={v.id} value={v.id}>
-                          {v.name} · {v.plate}
+                          {v.name}
                         </option>
                       ))}
                     </select>
@@ -657,7 +657,6 @@ function App() {
                 <article className="panel" key={v.id}>
                   <span className="car-symbol">◇</span>
                   <h2>{v.name}</h2>
-                  <span className="plate">{v.plate}</span>
                   {canManage && (
                     <div>
                       <button
@@ -706,16 +705,6 @@ function App() {
                     maxLength={80}
                   />
                 </label>
-                <label>
-                  Placa
-                  <input
-                    name="plate"
-                    defaultValue={editingVehicle.plate}
-                    required
-                    minLength={4}
-                    maxLength={12}
-                  />
-                </label>
                 <button disabled={busy}>Salvar alterações</button>
                 <button
                   type="button"
@@ -751,10 +740,6 @@ function App() {
                     placeholder="Ex.: Sedan 01"
                   />
                 </label>
-                <label>
-                  Placa
-                  <input name="plate" required minLength={4} maxLength={12} />
-                </label>
                 <button disabled={busy}>Cadastrar</button>
               </form>
             )}
@@ -767,7 +752,7 @@ function App() {
                 <article key={u.id}>
                   <div>
                     <strong>{u.name}</strong>
-                    <p>{u.email}</p>
+                    <p>{u.username}</p>
                   </div>
                   <span className="badge">{roles[u.role]}</span>
                   {Boolean(u.locked) && (
@@ -846,13 +831,14 @@ function App() {
                   />
                 </label>
                 <label>
-                  E-mail
+                  Usuário
                   <input
-                    name="email"
-                    type="email"
-                    defaultValue={editingUser.email}
+                    name="username"
+                    type="text"
+                    defaultValue={editingUser.username}
+                    placeholder="nome.sobrenome"
                     required
-                    maxLength={254}
+                    maxLength={60}
                   />
                 </label>
                 <label>
@@ -882,7 +868,7 @@ function App() {
                   </select>
                 </label>
                 <p className="wide">
-                  Alterações de e-mail, senha ou perfil encerram as sessões
+                  Alterações de usuário, senha ou perfil encerram as sessões
                   desse usuário.
                 </p>
                 <button disabled={busy}>Salvar alterações</button>
@@ -914,8 +900,13 @@ function App() {
                 <input name="name" required minLength={2} maxLength={100} />
               </label>
               <label>
-                E-mail
-                <input type="email" name="email" required />
+                Usuário
+                <input
+                  type="text"
+                  name="username"
+                  placeholder="nome.sobrenome"
+                  required
+                />
               </label>
               <label>
                 Senha
@@ -938,7 +929,6 @@ function App() {
 				  <option value="manager">Gestor de agenda</option>
                   {user.role === "admin" && (
                     <>
-                      <option value="manager">Gestor de agenda</option>
                       <option value="admin">Administrador</option>
                     </>
                   )}

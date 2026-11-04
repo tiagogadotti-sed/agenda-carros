@@ -26,16 +26,18 @@ test("perfis, sessões, isolamento regional e conflitos de reservas", async () =
       [3, 1, "viewer"],
       [4, 2, "admin"],
     ] as const)
-      db.prepare("INSERT INTO users VALUES(?,?,?,?,?,?)").run(
+      db.prepare(
+        "INSERT INTO users(id,region_id,name,username,password,role) VALUES(?,?,?,?,?,?)",
+      ).run(
         id,
         region,
         role,
-        `${id}@example.org`,
+        `user.${id}`,
         hashPassword("senha-de-teste-segura"),
         role,
       );
     db.exec(
-      "INSERT INTO vehicles VALUES(1,1,'Carro A','ABC1D23'),(2,2,'Carro B','DEF4G56')",
+      "INSERT INTO vehicles VALUES(1,1,'Carro A'),(2,2,'Carro B')",
     );
     const admin = request.agent(app),
       manager = request.agent(app),
@@ -44,7 +46,7 @@ test("perfis, sessões, isolamento regional e conflitos de reservas", async () =
     await request(app).get("/api/bookings").expect(401);
     await admin
       .post("/api/login")
-      .send({ email: "1@example.org", password: "senha-de-teste-segura" })
+      .send({ username: "user.1", password: "senha-de-teste-segura" })
       .expect(403);
     for (const [client, id] of [
       [admin, 1],
@@ -53,7 +55,7 @@ test("perfis, sessões, isolamento regional e conflitos de reservas", async () =
       [other, 4],
     ] as const) {
       const login = await post(client, "/api/login", {
-        email: `${id}@example.org`,
+        username: `user.${id}`,
         password: "senha-de-teste-segura",
       }).expect(200);
       assert.match(login.headers["set-cookie"][0], /HttpOnly/);
@@ -91,7 +93,7 @@ test("perfis, sessões, isolamento regional e conflitos de reservas", async () =
     await viewer.get("/api/users").expect(403);
     const newUser = {
       name: "Nova pessoa",
-      email: "nova@example.org",
+      username: "nova.pessoa",
       password: "Teste#88!",
       role: "admin",
     };
@@ -105,7 +107,6 @@ test("perfis, sessões, isolamento regional e conflitos de reservas", async () =
     await post(admin, "/api/users", newUser).expect(409);
     await post(manager, "/api/vehicles", {
       name: "Teste",
-      plate: "TEST123",
     }).expect(403);
     await post(admin, `/api/bookings/${id}/cancel`, {}).expect(200);
     await post(admin, "/api/bookings", body).expect(201);
