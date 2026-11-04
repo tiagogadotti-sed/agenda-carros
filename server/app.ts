@@ -161,7 +161,7 @@ export function createApp(
       .object({
         name: z.string().trim().min(2).max(100),
         email: z.string().email().max(254),
-        password: z.string().min(12).max(128),
+        password: z.string().min(8).max(128),
         role: z.enum(["admin", "manager", "viewer"]),
       })
       .parse(req.body);
@@ -270,13 +270,10 @@ export function createApp(
   app.get("/", (_req, res) => res.sendFile(resolve("dist/index.html")));
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof z.ZodError) {
-      res
-        .status(400)
-        .json({
-          error:
-            "Confira os campos. Senhas devem ter pelo menos 12 caracteres.",
-          details: err.issues.map((i) => i.path.join(".")),
-        });
+      res.status(400).json({
+        error: "Confira os campos. Senhas devem ter pelo menos 8 caracteres.",
+        details: err.issues.map((i) => i.path.join(".")),
+      });
       return;
     }
     if (err.message.includes("booking_conflict")) {

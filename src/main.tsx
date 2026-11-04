@@ -545,12 +545,12 @@ function App() {
                 <input
                   type="password"
                   name="password"
-                  minLength={12}
+                  minLength={8}
                   maxLength={128}
                   autoComplete="new-password"
                   required
                 />
-                <small>Mínimo de 12 caracteres</small>
+                <small>Mínimo de 8 caracteres</small>
               </label>
               <label>
                 Perfil
