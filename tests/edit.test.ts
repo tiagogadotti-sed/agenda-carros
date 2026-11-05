@@ -52,16 +52,15 @@ test("edição respeita perfis, regional, unicidade, sessões e último administ
       }).expect(200);
     const vehicle = { name: "Veículo atualizado" };
     await post(viewer, "/api/vehicles/1/edit", vehicle).expect(403);
-    await post(manager, "/api/vehicles/3/edit", vehicle).expect(404);
-    await post(manager, "/api/vehicles/1/edit", vehicle).expect(200);
+    await post(admin, "/api/vehicles/3/edit", vehicle).expect(404);
+    await post(manager, "/api/vehicles/1/edit", vehicle).expect(403);
+    await post(admin, "/api/vehicles/1/edit", vehicle).expect(200);
     assert.equal(
       db.prepare("SELECT name FROM vehicles WHERE id=1").get()!.name,
       "Veículo atualizado",
     );
     await post(admin, "/api/vehicles/2/edit", vehicle).expect(409);
-    await post(admin, "/api/vehicles/1/edit", { name: "" }).expect(
-      400,
-    );
+    await post(admin, "/api/vehicles/1/edit", { name: "" }).expect(400);
     await post(admin, "/api/vehicles/1/edit", {
       name: "Nome final",
     }).expect(200);
@@ -72,7 +71,7 @@ test("edição respeita perfis, regional, unicidade, sessões e último administ
       password: "",
     };
     await post(viewer, "/api/users/3/edit", person).expect(403);
-    await post(manager, "/api/users/4/edit", person).expect(404);
+    await post(admin, "/api/users/4/edit", person).expect(404);
     await post(manager, "/api/users/1/edit", {
       ...person,
       role: "admin",
@@ -87,17 +86,17 @@ test("edição respeita perfis, regional, unicidade, sessões e último administ
     }).expect(403);
     const previous = db.prepare("SELECT password FROM users WHERE id=3").get()!
       .password;
-    await post(manager, "/api/users/3/edit", person).expect(200);
+    await post(admin, "/api/users/3/edit", person).expect(200);
     assert.equal(
       db.prepare("SELECT password FROM users WHERE id=3").get()!.password,
       previous,
     );
     await viewer.get("/api/me").expect(200);
-    await post(manager, "/api/users/3/edit", {
+    await post(admin, "/api/users/3/edit", {
       ...person,
       password: "curta",
     }).expect(400);
-    await post(manager, "/api/users/3/edit", {
+    await post(admin, "/api/users/3/edit", {
       ...person,
       username: "user.1",
     }).expect(409);
@@ -105,7 +104,7 @@ test("edição respeita perfis, regional, unicidade, sessões e último administ
       db.prepare("SELECT username FROM users WHERE id=3").get()!.username,
       "user.3",
     );
-    await post(manager, "/api/users/3/edit", {
+    await post(admin, "/api/users/3/edit", {
       ...person,
       password: "Nova#8888",
     }).expect(200);
@@ -130,7 +129,7 @@ test("edição respeita perfis, regional, unicidade, sessões e último administ
       username: "user.1",
       role: "viewer",
     }).expect(409);
-    await post(manager, "/api/users/3/edit", {
+    await post(admin, "/api/users/3/edit", {
       ...person,
       role: "manager",
     }).expect(200);
@@ -140,7 +139,7 @@ test("edição respeita perfis, regional, unicidade, sessões e último administ
       password: "Nova#8888",
     }).expect(200);
     assert.equal((await viewer.get("/api/me")).body.role, "manager");
-    await post(manager, "/api/users/3/edit", person).expect(200);
+    await post(admin, "/api/users/3/edit", person).expect(200);
     await viewer.get("/api/me").expect(401);
     await post(viewer, "/api/login", {
       username: person.username,
@@ -148,13 +147,13 @@ test("edição respeita perfis, regional, unicidade, sessões e último administ
     }).expect(200);
     assert.equal((await viewer.get("/api/me")).body.role, "viewer");
     await viewer.get("/api/users").expect(403);
-    const response = await post(manager, "/api/users/2/edit", {
-      name: "Gestor",
-      username: "gestor.novo",
-      role: "manager",
+    const response = await post(admin, "/api/users/1/edit", {
+      name: "Administrador atualizado",
+      username: "admin.novo",
+      role: "admin",
     }).expect(200);
     assert.equal(response.body.requiresLogin, true);
-    await manager.get("/api/me").expect(401);
+    await admin.get("/api/me").expect(401);
     assert.equal(
       db
         .prepare(

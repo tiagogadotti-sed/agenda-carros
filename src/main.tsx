@@ -37,7 +37,7 @@ async function api(path: string, body?: unknown) {
 }
 const roles: Record<string, string> = {
   admin: "Administrador",
-  manager: "Gestor de agenda",
+  manager: "Gestor de Agenda",
   viewer: "Consulta",
 };
 const localDay = (d: Date) =>
@@ -78,7 +78,7 @@ function App() {
       .finally(() => setLoading(false));
   }, []);
   useEffect(() => {
-    if (user && tab === "users")
+    if (user?.role === "admin" && tab === "users")
       api("/users")
         .then(setUsers)
         .catch((e) => setError(e.message));
@@ -99,7 +99,8 @@ function App() {
     e.preventDefault();
     return Object.fromEntries(new FormData(e.currentTarget));
   };
-  const canManage = user?.role !== "viewer";
+  const isAdmin = user?.role === "admin";
+  const canSchedule = isAdmin || user?.role === "manager";
   const weekStart = new Date(day + "T12:00:00");
   weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
   const days = Array.from({ length: 5 }, (_, i) => {
@@ -256,7 +257,7 @@ function App() {
           {[
             ["agenda", "▦", "Agenda"],
             ["vehicles", "◇", "Veículos"],
-            ...(canManage ? [["users", "◎", "Usuários"]] : []),
+            ...(isAdmin ? [["users", "◎", "Usuários"]] : []),
           ].map(([id, icon, label]) => (
             <button
               className={tab === id ? "active" : ""}
@@ -438,14 +439,14 @@ function App() {
                       </option>
                     ))}
                   </select>
-                  {canManage && (
+                  {canSchedule && (
                     <button onClick={() => setShowForm(!showForm)}>
                       {showForm ? "Fechar formulário" : "+ Agendar viagem"}
                     </button>
                   )}
                 </div>
               </div>
-              {showForm && canManage && (
+              {showForm && canSchedule && (
                 <form
                   className="editor"
                   onSubmit={(e) => {
@@ -517,69 +518,78 @@ function App() {
                     (b) => new Date(b.start) < end && new Date(b.end) > start,
                   );
                   if (user?.mustChangePassword)
-    return (
-      <main className="login">
-        <div className="intro">
-          <span className="eyebrow">COORDENADORIA REGIONAL DE EDUCAÇÃO</span>
-          <h1>
-            Crie sua
-            <br />
-            senha pessoal.
-          </h1>
-          <p>Por segurança, defina uma nova senha antes de continuar.</p>
-        </div>
-        <section className="login-card">
-          <span className="brand">◈ Agenda CRE</span>
-          <h2>Primeiro acesso</h2>
-          <p>Escolha uma senha forte para proteger sua conta.</p>
-          {error && (
-            <p role="alert" className="error">
-              {error}
-            </p>
-          )}
-          <form
-            onSubmit={(e) => {
-              const b = form(e);
-              void action(async () => {
-                await api("/me/password", b);
-                setUser(null);
-                setVehicles([]);
-                setBookings([]);
-                setNotice("Senha criada com sucesso. Entre novamente.");
-              });
-            }}
-          >
-            <label>
-              Senha atual (fornecida pelo administrador)
-              <input
-                name="current"
-                type="password"
-                autoComplete="current-password"
-                required
-              />
-            </label>
-            <label>
-              Nova senha
-              <input
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                required
-                minLength={8}
-                maxLength={128}
-                pattern={PASSWORD_PATTERN}
-                title={PASSWORD_MESSAGE}
-              />
-            </label>
-            <small>{PASSWORD_MESSAGE}</small>
-            <button disabled={busy}>
-              {busy ? "Salvando…" : "Definir minha senha →"}
-            </button>
-          </form>
-        </section>
-      </main>
-    );
-  return (
+                    return (
+                      <main className="login">
+                        <div className="intro">
+                          <span className="eyebrow">
+                            COORDENADORIA REGIONAL DE EDUCAÇÃO
+                          </span>
+                          <h1>
+                            Crie sua
+                            <br />
+                            senha pessoal.
+                          </h1>
+                          <p>
+                            Por segurança, defina uma nova senha antes de
+                            continuar.
+                          </p>
+                        </div>
+                        <section className="login-card">
+                          <span className="brand">◈ Agenda CRE</span>
+                          <h2>Primeiro acesso</h2>
+                          <p>
+                            Escolha uma senha forte para proteger sua conta.
+                          </p>
+                          {error && (
+                            <p role="alert" className="error">
+                              {error}
+                            </p>
+                          )}
+                          <form
+                            onSubmit={(e) => {
+                              const b = form(e);
+                              void action(async () => {
+                                await api("/me/password", b);
+                                setUser(null);
+                                setVehicles([]);
+                                setBookings([]);
+                                setNotice(
+                                  "Senha criada com sucesso. Entre novamente.",
+                                );
+                              });
+                            }}
+                          >
+                            <label>
+                              Senha atual (fornecida pelo administrador)
+                              <input
+                                name="current"
+                                type="password"
+                                autoComplete="current-password"
+                                required
+                              />
+                            </label>
+                            <label>
+                              Nova senha
+                              <input
+                                name="password"
+                                type="password"
+                                autoComplete="new-password"
+                                required
+                                minLength={8}
+                                maxLength={128}
+                                pattern={PASSWORD_PATTERN}
+                                title={PASSWORD_MESSAGE}
+                              />
+                            </label>
+                            <small>{PASSWORD_MESSAGE}</small>
+                            <button disabled={busy}>
+                              {busy ? "Salvando…" : "Definir minha senha →"}
+                            </button>
+                          </form>
+                        </section>
+                      </main>
+                    );
+                  return (
                     <section
                       key={d.toISOString()}
                       className={
@@ -611,7 +621,7 @@ function App() {
                                 — {new Date(b.end).toLocaleDateString("pt-BR")}
                               </small>
                             )}
-                            {canManage && (
+                            {isAdmin && (
                               <button
                                 className="cancel"
                                 disabled={busy}
@@ -657,7 +667,7 @@ function App() {
                 <article className="panel" key={v.id}>
                   <span className="car-symbol">◇</span>
                   <h2>{v.name}</h2>
-                  {canManage && (
+                  {isAdmin && (
                     <div>
                       <button
                         disabled={busy}
@@ -680,7 +690,7 @@ function App() {
                 </p>
               )}
             </div>
-            {editingVehicle && canManage && (
+            {editingVehicle && isAdmin && (
               <form
                 key={editingVehicle.id}
                 className="panel editor"
@@ -745,7 +755,7 @@ function App() {
             )}
           </>
         )}
-        {tab === "users" && canManage && (
+        {tab === "users" && isAdmin && (
           <>
             <section className="panel people">
               {users.map((u) => (
@@ -861,7 +871,7 @@ function App() {
                   Perfil
                   <select name="role" defaultValue={editingUser.role}>
                     <option value="viewer">Consulta</option>
-                    <option value="manager">Gestor de agenda</option>
+                    <option value="manager">Gestor de Agenda</option>
                     {user.role === "admin" && (
                       <option value="admin">Administrador</option>
                     )}
@@ -926,7 +936,7 @@ function App() {
                 Perfil
                 <select name="role">
                   <option value="viewer">Consulta</option>
-				  <option value="manager">Gestor de agenda</option>
+                  <option value="manager">Gestor de Agenda</option>
                   {user.role === "admin" && (
                     <>
                       <option value="admin">Administrador</option>

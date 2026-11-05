@@ -27,12 +27,7 @@ test("senha exige todas as classes, inclusive no cadastro e na edição", async 
     db.exec("INSERT INTO regions VALUES(1,'Teste')");
     db.prepare(
       "INSERT INTO users(id,region_id,name,username,password,role) VALUES(1,1,?,?,?,?)",
-    ).run(
-      "Admin",
-      "admin.user",
-      hashPassword("Abcdef1!"),
-      "admin",
-    );
+    ).run("Admin", "admin.user", hashPassword("Abcdef1!"), "admin");
     const agent = request.agent(createApp(db));
     const post = (path: string, body: object) =>
       agent
@@ -131,7 +126,7 @@ test("três falhas bloqueiam permanentemente, apenas admin da regional desbloque
     await post(viewer, "/api/users/3/unlock", {}).expect(401);
     await post(admin, "/api/users/4/unlock", {}).expect(404);
     // Alterar senha, e-mail ou perfil não contorna o bloqueio ligado ao ID.
-    await post(manager, "/api/users/3/edit", {
+    await post(admin, "/api/users/3/edit", {
       name: "Pessoa",
       username: "novo.user",
       role: "manager",

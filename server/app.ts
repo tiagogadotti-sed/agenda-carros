@@ -48,6 +48,15 @@ export function createApp(
   app.disable("x-powered-by");
   app.use(helmet());
   app.use(express.json({ limit: "16kb" }));
+  app.get("/healthz", (_req, res) => {
+    res.set("Cache-Control", "no-store");
+    try {
+      db.prepare("SELECT 1 FROM regions LIMIT 1").get();
+      res.json({ status: "ok" });
+    } catch {
+      res.status(503).json({ status: "unavailable" });
+    }
+  });
   app.use("/api", (req, res, next) => {
     res.set("Cache-Control", "no-store");
     if (
@@ -107,8 +116,7 @@ export function createApp(
       try {
         const user = db
           .prepare("SELECT * FROM users WHERE username=?")
-          .get(input.username) as
-          (User & { password: string }) | undefined;
+          .get(input.username) as (User & { password: string }) | undefined;
         if (!user) {
           db.exec("COMMIT");
           res.status(401).json({ error: "Usuário ou senha inválidos." });
@@ -135,11 +143,9 @@ export function createApp(
             ).run(user.region_id, user.id, user.id);
           }
           db.exec("COMMIT");
-          res
-            .status(locked ? 423 : 401)
-            .json({
-              error: locked ? LOCK_MESSAGE : "Usuário ou senha inválidos.",
-            });
+          res.status(locked ? 423 : 401).json({
+            error: locked ? LOCK_MESSAGE : "Usuário ou senha inválidos.",
+          });
           return;
         }
         db.prepare("DELETE FROM login_security WHERE user_id=?").run(user.id);
@@ -196,8 +202,11 @@ export function createApp(
       region: db.prepare("SELECT name FROM regions WHERE id=?").get(u.region_id)
         ?.name,
       mustChangePassword: Boolean(
-        (db.prepare("SELECT must_change_password FROM users WHERE id=?").get(u.id) as { must_change_password: number } | undefined)
-          ?.must_change_password,
+        (
+          db
+            .prepare("SELECT must_change_password FROM users WHERE id=?")
+            .get(u.id) as { must_change_password: number } | undefined
+        )?.must_change_password,
       ),
     });
   });
@@ -227,7 +236,7 @@ export function createApp(
       .run(u.region_id, b.name);
     res.status(201).json({ id: Number(r.lastInsertRowid) });
   });
-  app.get("/api/users", allowed(["admin", "manager"]), (_req, res) =>
+  app.get("/api/users", allowed(["admin"]), (_req, res) =>
     res.json(
       db
         .prepare(
@@ -236,7 +245,7 @@ export function createApp(
         .all(res.locals.user.region_id),
     ),
   );
-  app.post("/api/users", allowed(["admin", "manager"]), (req, res) => {
+  app.post("/api/users", allowed(["admin"]), (req, res) => {
     const b = z
       .object({
         name: z.string().trim().min(2).max(100),
@@ -258,58 +267,40 @@ export function createApp(
       })
       .parse(req.body);
     const u = res.locals.user as User;
-    if (u.role === "manager" && b.role !== "viewer") {
-      res
-        .status(403)
-        .json({ error: "Gestores podem criar apenas usuários de consulta." });
-      return;
-    }
     const r = db
       .prepare(
         "INSERT INTO users(region_id,name,username,password,role,must_change_password) VALUES(?,?,?,?,?,1)",
       )
-      .run(
-        u.region_id,
-        b.name,
-        b.username,
-        hashPassword(b.password),
-        b.role,
-      );
+      .run(u.region_id, b.name, b.username, hashPassword(b.password), b.role);
     audit(u, "user.created", Number(r.lastInsertRowid));
     res.status(201).json({ id: Number(r.lastInsertRowid) });
   });
-  app.post(
-    "/api/vehicles/:id/edit",
-    allowed(["admin", "manager"]),
-    (req, res) => {
-      const id = z.coerce.number().int().positive().parse(req.params.id);
-      const b = z
-        .object({
-          name: z.string().trim().min(2).max(80),
-        })
-        .parse(req.body);
-      const u = res.locals.user as User;
-      db.exec("BEGIN IMMEDIATE");
-      try {
-        const result = db
-          .prepare(
-            "UPDATE vehicles SET name=? WHERE id=? AND region_id=?",
-          )
-          .run(b.name, id, u.region_id);
-        if (!result.changes) {
-          db.exec("ROLLBACK");
-          res.status(404).json({ error: "Veículo não encontrado." });
-          return;
-        }
-        audit(u, "vehicle.updated", id);
-        db.exec("COMMIT");
-        res.json({ ok: true });
-      } catch (e) {
+  app.post("/api/vehicles/:id/edit", allowed(["admin"]), (req, res) => {
+    const id = z.coerce.number().int().positive().parse(req.params.id);
+    const b = z
+      .object({
+        name: z.string().trim().min(2).max(80),
+      })
+      .parse(req.body);
+    const u = res.locals.user as User;
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      const result = db
+        .prepare("UPDATE vehicles SET name=? WHERE id=? AND region_id=?")
+        .run(b.name, id, u.region_id);
+      if (!result.changes) {
         db.exec("ROLLBACK");
-        throw e;
+        res.status(404).json({ error: "Veículo não encontrado." });
+        return;
       }
-    },
-  );
+      audit(u, "vehicle.updated", id);
+      db.exec("COMMIT");
+      res.json({ ok: true });
+    } catch (e) {
+      db.exec("ROLLBACK");
+      throw e;
+    }
+  });
   app.post("/api/users/:id/unlock", allowed(["admin"]), (req, res) => {
     const id = z.coerce.number().int().positive().parse(req.params.id);
     const u = res.locals.user as User;
@@ -333,7 +324,7 @@ export function createApp(
       throw e;
     }
   });
-  app.post("/api/users/:id/edit", allowed(["admin", "manager"]), (req, res) => {
+  app.post("/api/users/:id/edit", allowed(["admin"]), (req, res) => {
     const id = z.coerce.number().int().positive().parse(req.params.id);
     const b = z
       .object({
@@ -359,23 +350,14 @@ export function createApp(
     db.exec("BEGIN IMMEDIATE");
     try {
       const target = db
-        .prepare("SELECT id,role,username FROM users WHERE id=? AND region_id=?")
+        .prepare(
+          "SELECT id,role,username FROM users WHERE id=? AND region_id=?",
+        )
         .get(id, u.region_id) as
         Pick<User, "id" | "role" | "username"> | undefined;
       if (!target) {
         db.exec("ROLLBACK");
         res.status(404).json({ error: "Usuário não encontrado." });
-        return;
-      }
-      if (
-        u.role === "manager" &&
-        (target.role === "admin" || b.role === "admin")
-      ) {
-        db.exec("ROLLBACK");
-        res.status(403).json({
-          error:
-            "Gestores podem alternar entre Gestor e Consulta, mas não editar ou atribuir Administrador.",
-        });
         return;
       }
       if (
@@ -436,10 +418,9 @@ export function createApp(
         res.status(401).json({ error: "Senha atual incorreta." });
         return;
       }
-      db.prepare("UPDATE users SET password=?,must_change_password=0 WHERE id=?").run(
-        hashPassword(b.password),
-        u.id,
-      );
+      db.prepare(
+        "UPDATE users SET password=?,must_change_password=0 WHERE id=?",
+      ).run(hashPassword(b.password), u.id);
       db.prepare("DELETE FROM sessions WHERE user_id=?").run(u.id);
       audit(u, "user.password_changed", u.id);
       db.exec("COMMIT");
@@ -498,35 +479,31 @@ export function createApp(
       throw e;
     }
   });
-  app.post(
-    "/api/bookings/:id/cancel",
-    allowed(["admin", "manager"]),
-    (req, res) => {
-      const id = z.coerce.number().int().positive().parse(req.params.id);
-      const u = res.locals.user as User;
-      db.exec("BEGIN IMMEDIATE");
-      try {
-        const r = db
-          .prepare(
-            "UPDATE bookings SET cancelled=1 WHERE id=? AND region_id=? AND cancelled=0",
-          )
-          .run(id, u.region_id);
-        if (!r.changes) {
-          db.exec("ROLLBACK");
-          res
-            .status(404)
-            .json({ error: "Reserva não encontrada ou já cancelada." });
-          return;
-        }
-        audit(u, "booking.cancelled", id);
-        db.exec("COMMIT");
-        res.json({ ok: true });
-      } catch (e) {
+  app.post("/api/bookings/:id/cancel", allowed(["admin"]), (req, res) => {
+    const id = z.coerce.number().int().positive().parse(req.params.id);
+    const u = res.locals.user as User;
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      const r = db
+        .prepare(
+          "UPDATE bookings SET cancelled=1 WHERE id=? AND region_id=? AND cancelled=0",
+        )
+        .run(id, u.region_id);
+      if (!r.changes) {
         db.exec("ROLLBACK");
-        throw e;
+        res
+          .status(404)
+          .json({ error: "Reserva não encontrada ou já cancelada." });
+        return;
       }
-    },
-  );
+      audit(u, "booking.cancelled", id);
+      db.exec("COMMIT");
+      res.json({ ok: true });
+    } catch (e) {
+      db.exec("ROLLBACK");
+      throw e;
+    }
+  });
   app.use("/api", (_req, res) =>
     res.status(404).json({ error: "Recurso não encontrado." }),
   );

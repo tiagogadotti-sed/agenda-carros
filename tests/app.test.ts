@@ -36,9 +36,7 @@ test("perfis, sessões, isolamento regional e conflitos de reservas", async () =
         hashPassword("senha-de-teste-segura"),
         role,
       );
-    db.exec(
-      "INSERT INTO vehicles VALUES(1,1,'Carro A'),(2,2,'Carro B')",
-    );
+    db.exec("INSERT INTO vehicles VALUES(1,1,'Carro A'),(2,2,'Carro B')");
     const admin = request.agent(app),
       manager = request.agent(app),
       viewer = request.agent(app),
@@ -75,11 +73,22 @@ test("perfis, sessões, isolamento regional e conflitos de reservas", async () =
     ]);
     assert.deepEqual(results.map((r) => r.status).sort(), [201, 409]);
     const id = results.find((r) => r.status === 201)!.body.id;
-    await post(manager, "/api/bookings", {
+    const managerBooking = await post(manager, "/api/bookings", {
       ...body,
       start: body.end,
       end: "2026-12-01T11:00:00-03:00",
     }).expect(201);
+    await post(
+      manager,
+      `/api/bookings/${managerBooking.body.id}/cancel`,
+      {},
+    ).expect(403);
+    assert.equal(
+      db
+        .prepare("SELECT cancelled FROM bookings WHERE id=?")
+        .get(managerBooking.body.id)!.cancelled,
+      0,
+    );
     await post(admin, "/api/bookings", { ...body, end: body.start }).expect(
       400,
     );
@@ -91,6 +100,8 @@ test("perfis, sessões, isolamento regional e conflitos de reservas", async () =
     assert.equal((await viewer.get("/api/bookings")).body.length, 2);
     assert.equal((await viewer.get("/api/vehicles")).body.length, 1);
     await viewer.get("/api/users").expect(403);
+    await manager.get("/api/users").expect(403);
+    await post(manager, `/api/bookings/${id}/cancel`, {}).expect(403);
     const newUser = {
       name: "Nova pessoa",
       username: "nova.pessoa",
@@ -102,8 +113,9 @@ test("perfis, sessões, isolamento regional e conflitos de reservas", async () =
       400,
     );
     await post(manager, "/api/users", { ...newUser, role: "viewer" }).expect(
-      201,
+      403,
     );
+    await post(admin, "/api/users", { ...newUser, role: "viewer" }).expect(201);
     await post(admin, "/api/users", newUser).expect(409);
     await post(manager, "/api/vehicles", {
       name: "Teste",

@@ -3,6 +3,10 @@ dist/
 data/
 backups/
 .env
+.env.*
+!.env.example
+.git/
+.github/
 *.log
 *.db*
 *.sqlite*
