@@ -4,7 +4,8 @@ import express, {
   type NextFunction,
 } from "express";
 import helmet from "helmet";
-import { rateLimit } from "express-rate-limit";
+import { rateLimit, ipKeyGenerator } from "express-rate-limit";
+import { isIP } from "node:net";
 import { randomBytes } from "node:crypto";
 import { resolve } from "node:path";
 import { z } from "zod";
@@ -29,6 +30,7 @@ export function createApp(
   origin = "http://localhost:5173",
   production = false,
   localPort = 3001,
+  flyProxy = false,
 ) {
   const configuredOrigin = new URL(origin).origin;
   const allowedOrigins = new Set([configuredOrigin]);
@@ -89,6 +91,20 @@ export function createApp(
       standardHeaders: true,
       legacyHeaders: false,
       message: { error: "Muitas tentativas. Aguarde 15 minutos." },
+      // Fly's X-Forwarded-For ends with an app/proxy address. Use the
+      // documented client header only when running behind Fly Proxy.
+      ...(flyProxy
+        ? {
+            keyGenerator: (req: Request) => {
+              const client = req.get("Fly-Client-IP");
+              const ip =
+                client && isIP(client)
+                  ? client
+                  : req.socket.remoteAddress || "unknown";
+              return ipKeyGenerator(ip);
+            },
+          }
+        : {}),
     }),
     (req, res) => {
       const input = z

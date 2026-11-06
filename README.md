@@ -68,7 +68,7 @@ O projeto inclui Dockerfile, fly.toml e workflow de deploy. Leia [o diagnóstico
 5. Mantenha uma única instância Node. O próprio Express serve o frontend compilado; não é preciso outra hospedagem.
 6. Preserve a pasta do banco nas atualizações e agende backups externos. Não exponha a porta 3001 à internet.
 
-O limitador de login inicialmente considera o IP do proxy, de forma conservadora. Antes de ampliar o uso, configure a confiança no proxy somente para a infraestrutura real e teste limites por cliente.
+No Fly, o limitador de login usa o `Fly-Client-IP` validado, habilitado pelo ambiente `FLY_APP_NAME`. Fora do Fly, usa o IP da conexão. Para outras hospedagens atrás de proxy, configure a identificação de IP conforme a infraestrutura real.
 
 ## Backup e recuperação
 

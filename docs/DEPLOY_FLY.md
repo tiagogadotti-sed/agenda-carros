@@ -45,7 +45,7 @@ Na migração do modelo antigo, foi reproduzida uma falha ao reconstruir `vehicl
 ### Pontos para revisão funcional posterior
 
 - A obrigação de trocar a senha inicial está aplicada na interface; o middleware ainda não bloqueia as demais operações da API enquanto `must_change_password=1`.
-- O limitador adicional por IP ainda não está adaptado à identificação do cliente atrás do proxy do Fly. Sem essa adaptação, vários usuários podem compartilhar a cota de 20 requisições de login em 15 minutos. O bloqueio por conta após três falhas funciona independentemente disso. Não habilitar `trust proxy=true` indiscriminadamente; revisar os hops/headers conforme a infraestrutura.
+- O limitador de login identifica o cliente pelo cabeçalho `Fly-Client-IP` quando `FLY_APP_NAME` está definido pelo runtime do Fly. Endereços são validados e IPv6 é agrupado pelo `ipKeyGenerator`; cabeçalho ausente/inválido usa o IP da conexão. Fora do Fly o cabeçalho é ignorado. Não é usado `trust proxy=true`. O bloqueio permanente por conta após três falhas continua independente do limite por IP. Se adicionar outro proxy (por exemplo, Cloudflare) antes do Fly, reavalie a identificação de IP conforme a cadeia de proxies.
 - Com uma única máquina e volume, haverá indisponibilidade durante substituição, falha ou manutenção da máquina. Não há replicação do SQLite nem failover implementados.
 
 ## 1. Conferir e validar localmente

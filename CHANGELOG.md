@@ -1,5 +1,9 @@
 # Histórico
 
+## 2026-11-05 — Limite de login atrás do Fly Proxy
+- Identificação de cliente pelo Fly-Client-IP validado no ambiente Fly, com agrupamento IPv6 e fallback para o IP da conexão.
+- Evita compartilhar a cota de login entre clientes distintos e corrige o aviso ERR_ERL_UNEXPECTED_X_FORWARDED_FOR sem liberar trust proxy indiscriminadamente.
+
 ## 2026-11-05 — Ajuste de perfis
 
 - Gestor de Agenda pode consultar e criar agendamentos, sem cancelar reservas.

@@ -12,6 +12,7 @@ const server = createApp(
   process.env.APP_ORIGIN || "http://localhost:5173",
   production,
   port,
+  Boolean(process.env.FLY_APP_NAME),
 ).listen(port, host, () =>
   console.log(`Agenda CRE ouvindo em http://${host}:${port}`),
 );
